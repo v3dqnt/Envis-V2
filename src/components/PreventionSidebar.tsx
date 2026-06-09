@@ -111,6 +111,11 @@ export default function PreventionSidebar({
   setVulnerabilityZones,
 }: PreventionSidebarProps) {
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Sync external city name (e.g. from live feed click → reverse geocode) into the input
+  useEffect(() => {
+    if (cityName && cityName !== "Local Area") setSearchQuery(cityName);
+  }, [cityName]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [strategyMarkdown, setStrategyMarkdown] = useState("");

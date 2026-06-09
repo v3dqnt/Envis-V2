@@ -12,11 +12,13 @@ interface MapDashboardProps {
   isPlacingHazard: boolean;
   onMapClick: (lng: number, lat: number) => void;
   mapFlyToCoords: [number, number] | null;
+  mapFlyToZoom?: number;
   clearFlyTo: () => void;
   evacuationPoints: any;
   onSelectDestination: (coords: [number, number]) => void;
   activeDefenses?: string[];
   vulnerabilityZones?: any;
+  eventOverlay?: any;
 }
 
 // Helper to generate circle coordinates for the GeoJSON polygon representing the dome
@@ -47,11 +49,13 @@ export default function MapDashboard({
   isPlacingHazard,
   onMapClick,
   mapFlyToCoords,
+  mapFlyToZoom = 14,
   clearFlyTo,
   evacuationPoints,
   onSelectDestination,
   activeDefenses = [],
   vulnerabilityZones,
+  eventOverlay,
 }: MapDashboardProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
@@ -374,6 +378,133 @@ export default function MapDashboard({
         }
       });
 
+      // 6. Event Overlay Source & Layers (cyclone track/cone + earthquake shake zones)
+      m.addSource('event-overlay-source', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] }
+      });
+
+      // Cyclone cone fill
+      m.addLayer({
+        id: 'event-cyclone-cone',
+        type: 'fill',
+        source: 'event-overlay-source',
+        filter: ['==', ['get', 'role'], 'cone'],
+        paint: { 'fill-color': '#a855f7', 'fill-opacity': 0.12 }
+      });
+      m.addLayer({
+        id: 'event-cyclone-cone-outline',
+        type: 'line',
+        source: 'event-overlay-source',
+        filter: ['==', ['get', 'role'], 'cone'],
+        paint: { 'line-color': '#a855f7', 'line-width': 1.5, 'line-dasharray': [3, 2], 'line-opacity': 0.6 }
+      });
+      // Cyclone R34 wind radii
+      m.addLayer({
+        id: 'event-cyclone-wind-r34',
+        type: 'fill',
+        source: 'event-overlay-source',
+        filter: ['==', ['get', 'role'], 'wind_r34'],
+        paint: { 'fill-color': '#facc15', 'fill-opacity': 0.08 }
+      });
+      m.addLayer({
+        id: 'event-cyclone-wind-r34-outline',
+        type: 'line',
+        source: 'event-overlay-source',
+        filter: ['==', ['get', 'role'], 'wind_r34'],
+        paint: { 'line-color': '#facc15', 'line-width': 1, 'line-dasharray': [2, 3], 'line-opacity': 0.5 }
+      });
+      // Cyclone R64 wind radii
+      m.addLayer({
+        id: 'event-cyclone-wind-r64',
+        type: 'fill',
+        source: 'event-overlay-source',
+        filter: ['==', ['get', 'role'], 'wind_r64'],
+        paint: { 'fill-color': '#f97316', 'fill-opacity': 0.1 }
+      });
+      // Cyclone forecast track
+      m.addLayer({
+        id: 'event-cyclone-track',
+        type: 'line',
+        source: 'event-overlay-source',
+        filter: ['==', ['get', 'role'], 'forecast_track'],
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: { 'line-color': '#e879f9', 'line-width': 2.5, 'line-dasharray': [4, 2], 'line-opacity': 0.9 }
+      });
+      // Cyclone current position
+      m.addLayer({
+        id: 'event-cyclone-current-glow',
+        type: 'circle',
+        source: 'event-overlay-source',
+        filter: ['==', ['get', 'role'], 'current'],
+        paint: { 'circle-radius': 18, 'circle-color': '#e879f9', 'circle-opacity': 0.25, 'circle-blur': 0.6 }
+      });
+      m.addLayer({
+        id: 'event-cyclone-current',
+        type: 'circle',
+        source: 'event-overlay-source',
+        filter: ['==', ['get', 'role'], 'current'],
+        paint: { 'circle-radius': 8, 'circle-color': '#e879f9', 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 2 }
+      });
+
+      // Earthquake shake zones
+      m.addLayer({
+        id: 'event-eq-light',
+        type: 'fill',
+        source: 'event-overlay-source',
+        filter: ['==', ['get', 'zone'], 'light'],
+        paint: { 'fill-color': '#eab308', 'fill-opacity': 0.1 }
+      });
+      m.addLayer({
+        id: 'event-eq-light-outline',
+        type: 'line',
+        source: 'event-overlay-source',
+        filter: ['==', ['get', 'zone'], 'light'],
+        paint: { 'line-color': '#eab308', 'line-width': 1.5, 'line-opacity': 0.5 }
+      });
+      m.addLayer({
+        id: 'event-eq-moderate',
+        type: 'fill',
+        source: 'event-overlay-source',
+        filter: ['==', ['get', 'zone'], 'moderate'],
+        paint: { 'fill-color': '#f97316', 'fill-opacity': 0.15 }
+      });
+      m.addLayer({
+        id: 'event-eq-moderate-outline',
+        type: 'line',
+        source: 'event-overlay-source',
+        filter: ['==', ['get', 'zone'], 'moderate'],
+        paint: { 'line-color': '#f97316', 'line-width': 2, 'line-opacity': 0.6 }
+      });
+      m.addLayer({
+        id: 'event-eq-severe',
+        type: 'fill',
+        source: 'event-overlay-source',
+        filter: ['==', ['get', 'zone'], 'severe'],
+        paint: { 'fill-color': '#ef4444', 'fill-opacity': 0.2 }
+      });
+      m.addLayer({
+        id: 'event-eq-severe-outline',
+        type: 'line',
+        source: 'event-overlay-source',
+        filter: ['==', ['get', 'zone'], 'severe'],
+        paint: { 'line-color': '#ef4444', 'line-width': 2.5, 'line-opacity': 0.7 }
+      });
+      m.addLayer({
+        id: 'event-eq-epicentre-glow',
+        type: 'circle',
+        source: 'event-overlay-source',
+        filter: ['==', ['get', 'zone'], 'epicentre'],
+        paint: { 'circle-radius': 16, 'circle-color': '#ef4444', 'circle-opacity': 0.3, 'circle-blur': 0.7 }
+      });
+      m.addLayer({
+        id: 'event-eq-epicentre',
+        type: 'circle',
+        source: 'event-overlay-source',
+        filter: ['==', ['get', 'zone'], 'epicentre'],
+        paint: { 'circle-radius': 7, 'circle-color': '#ef4444', 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 2 }
+      });
+
       // Add hover popup for vulnerability zones
       m.on('mousemove', 'vulnerability-zones-high', () => { m.getCanvas().style.cursor = 'pointer'; });
       m.on('mousemove', 'vulnerability-zones-medium', () => { m.getCanvas().style.cursor = 'pointer'; });
@@ -689,6 +820,49 @@ export default function MapDashboard({
     }
   }, [hazardCenter, hazardRadius, routeGeoJSON, bypassRouteGeoJSON, evacuationPoints, activeDefenses, vulnerabilityZones]);
 
+  // Dedicated effect for event overlay — decoupled from main updateLayers
+  useEffect(() => {
+    if (!map.current) return;
+    const m = map.current;
+    const overlayLayers = [
+      'event-cyclone-cone', 'event-cyclone-cone-outline',
+      'event-cyclone-wind-r34', 'event-cyclone-wind-r34-outline', 'event-cyclone-wind-r64',
+      'event-cyclone-track', 'event-cyclone-current-glow', 'event-cyclone-current',
+      'event-eq-light', 'event-eq-light-outline',
+      'event-eq-moderate', 'event-eq-moderate-outline',
+      'event-eq-severe', 'event-eq-severe-outline',
+      'event-eq-epicentre-glow', 'event-eq-epicentre',
+    ];
+
+    const apply = () => {
+      try {
+        const src = m.getSource('event-overlay-source') as maplibregl.GeoJSONSource;
+        if (!src) return;
+        if (eventOverlay?.features?.length) {
+          src.setData(eventOverlay);
+          overlayLayers.forEach(id => {
+            if (m.getLayer(id)) m.setLayoutProperty(id, 'visibility', 'visible');
+          });
+        } else {
+          src.setData({ type: 'FeatureCollection', features: [] });
+          overlayLayers.forEach(id => {
+            if (m.getLayer(id)) m.setLayoutProperty(id, 'visibility', 'none');
+          });
+        }
+      } catch (e) {
+        console.error('[EventOverlay] apply error:', e);
+      }
+    };
+
+    // 'idle' fires whenever the map finishes rendering — reliable even after initial load
+    if (m.isStyleLoaded()) {
+      apply();
+    } else {
+      const onIdle = () => { apply(); m.off('idle', onIdle); };
+      m.on('idle', onIdle);
+    }
+  }, [eventOverlay]);
+
   // Handle crosshair cursor when placing hazard dome
   useEffect(() => {
     if (!map.current) return;
@@ -705,11 +879,11 @@ export default function MapDashboard({
     if (!map.current || !mapFlyToCoords) return;
     map.current.flyTo({
       center: mapFlyToCoords,
-      zoom: 14,
+      zoom: mapFlyToZoom,
       essential: true
     });
     clearFlyTo();
-  }, [mapFlyToCoords, clearFlyTo]);
+  }, [mapFlyToCoords, mapFlyToZoom, clearFlyTo]);
 
   return (
     <div className="w-full h-full relative flex-grow">

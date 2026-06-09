@@ -20,6 +20,7 @@ export default function Home() {
   const [bypassRouteGeoJSON, setBypassRouteGeoJSON] = useState<any>(null);
   const [isPlacingHazard, setIsPlacingHazard] = useState<boolean>(false);
   const [mapFlyToCoords, setMapFlyToCoords] = useState<[number, number] | null>(null);
+  const [mapFlyToZoom, setMapFlyToZoom] = useState<number>(14);
   const [aiRecommendation, setAiRecommendation] = useState<string>("");
   const [aiLoading, setAiLoading] = useState<boolean>(false);
   const [evacuationPoints, setEvacuationPoints] = useState<any>(null);
@@ -45,6 +46,9 @@ export default function Home() {
 
   // Vulnerability zones state (for map highlighting)
   const [vulnerabilityZones, setVulnerabilityZones] = useState<any>(null);
+
+  // Event overlay state (cyclone track / earthquake zones from live feed click)
+  const [eventOverlay, setEventOverlay] = useState<any>(null);
   
   // Lifted disaster type state to keep all sidebars and right panel in sync
   const [incidentType, setIncidentType] = useState<string>("Wildfire");
@@ -186,6 +190,35 @@ export default function Home() {
     return () => clearTimeout(timer);
   }, [hazardCenter, hazardRadius]);
 
+  // Fetch event track/zones when a live feed event is selected
+  const handleEventSelect = async (event: any) => {
+    const isCyclone = ["Tropical Cyclone", "Hurricane", "Typhoon", "Tornado", "Extreme Rainfall"].includes(event.type);
+    // Fly to appropriate zoom — cyclone tracks span many degrees, earthquakes are local
+    setMapFlyToZoom(isCyclone ? 4 : 7);
+    setMapFlyToCoords(event.coordinates);
+    try {
+      const res = await fetch("/api/event-track", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: event.id,
+          type: event.type,
+          source: event.source,
+          coordinates: event.coordinates,
+          magnitude: event.magnitude,
+          depth: event.depth,
+          windSpeed: event.windSpeed,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.geojson) setEventOverlay(data.geojson);
+      }
+    } catch (err) {
+      console.error("Failed to fetch event track:", err);
+    }
+  };
+
   // Fetch city name and population density when hazardCenter is updated
   useEffect(() => {
     if (!hazardCenter) {
@@ -293,11 +326,13 @@ export default function Home() {
           }
         }}
         mapFlyToCoords={mapFlyToCoords}
+        mapFlyToZoom={mapFlyToZoom}
         clearFlyTo={() => setMapFlyToCoords(null)}
-        evacuationPoints={evacuationPoints}
+        evacuationPoints={mode === "routing" ? evacuationPoints : null}
         onSelectDestination={(coords: [number, number]) => setEndCoords(coords)}
         activeDefenses={activeDefenses}
         vulnerabilityZones={vulnerabilityZones}
+        eventOverlay={eventOverlay}
       />
 
       {mode === "routing" ? (
@@ -358,8 +393,8 @@ export default function Home() {
           earthquakes={liveEarthquakes}
           feedLoading={liveFeedLoading}
           setHazardCenter={setHazardCenter}
-          setMapFlyToCoords={setMapFlyToCoords}
           setIncidentType={setIncidentType}
+          onEventSelect={handleEventSelect}
         />
       )}
     </main>

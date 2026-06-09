@@ -5,25 +5,28 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import {
   Radio,
   Loader2,
-  AlertTriangle,
   Waves,
   Activity,
   Wind,
   Globe,
   Zap,
-  Droplets,
-  TriangleAlert,
   Database,
+  MapPin,
+  Sparkles,
+  ChevronDown,
+  ChevronUp,
+  Users,
 } from "lucide-react";
 import type { CycloneEvent, EarthquakeEvent } from "@/app/api/live-feed/route";
+import type { CityRisk } from "@/app/api/cyclone-cities/route";
 
 interface LiveFeedProps {
   cyclones: CycloneEvent[];
   earthquakes: EarthquakeEvent[];
   feedLoading: boolean;
   setHazardCenter: (coords: [number, number] | null) => void;
-  setMapFlyToCoords: (coords: [number, number] | null) => void;
   setIncidentType: (type: string) => void;
+  onEventSelect?: (event: CycloneEvent | EarthquakeEvent) => void;
 }
 
 type Tab = "cyclones" | "earthquakes";
@@ -56,6 +59,15 @@ const SOURCE_COLORS: Record<string, string> = {
   XWeather: "text-sky-400 border-sky-500/30 bg-sky-500/10",
 };
 
+const IMPACT_STYLES: Record<string, { badge: string; bar: string }> = {
+  catastrophic: { badge: "bg-red-500/20 border-red-500/50 text-red-400", bar: "bg-red-500" },
+  severe:       { badge: "bg-orange-500/15 border-orange-500/40 text-orange-400", bar: "bg-orange-500" },
+  moderate:     { badge: "bg-yellow-500/15 border-yellow-500/40 text-yellow-400", bar: "bg-yellow-500" },
+  watch:        { badge: "bg-sky-500/15 border-sky-500/40 text-sky-400", bar: "bg-sky-500" },
+};
+
+const IMPACT_ORDER = ["catastrophic", "severe", "moderate", "watch"];
+
 function magToColor(mag: number): string {
   if (mag >= 7.0) return "text-red-400 bg-red-500/15";
   if (mag >= 5.5) return "text-orange-400 bg-orange-500/10";
@@ -68,14 +80,53 @@ export default function GdacsRightFeed({
   earthquakes,
   feedLoading,
   setHazardCenter,
-  setMapFlyToCoords,
   setIncidentType,
+  onEventSelect,
 }: LiveFeedProps) {
   const [tab, setTab] = useState<Tab>("cyclones");
+  const [selectedCycloneId, setSelectedCycloneId] = useState<string | null>(null);
+  const [cityRisks, setCityRisks] = useState<CityRisk[]>([]);
+  const [cityLoading, setCityLoading] = useState(false);
+  const [cityPanelOpen, setCityPanelOpen] = useState(true);
 
   const redCyclones = cyclones.filter((c) => c.alertLevel === "red").length;
   const redEqs = earthquakes.filter((e) => e.alertLevel === "red").length;
   const tsunamiCount = earthquakes.filter((e) => e.tsunami).length;
+
+  const handleCycloneClick = async (evt: CycloneEvent) => {
+    if (!evt.coordinates) return;
+    setHazardCenter(evt.coordinates);
+    setIncidentType("Tornado");
+    onEventSelect?.(evt);
+
+    // Fetch city analysis
+    setSelectedCycloneId(evt.id);
+    setCityRisks([]);
+    setCityLoading(true);
+    setCityPanelOpen(true);
+    try {
+      const res = await fetch("/api/cyclone-cities", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          coordinates: evt.coordinates,
+          windSpeed: evt.windSpeed,
+          name: evt.name,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const sorted = (data.cities as CityRisk[]).sort(
+          (a, b) => IMPACT_ORDER.indexOf(a.impactLevel) - IMPACT_ORDER.indexOf(b.impactLevel)
+        );
+        setCityRisks(sorted);
+      }
+    } catch {
+      // silent
+    } finally {
+      setCityLoading(false);
+    }
+  };
 
   return (
     <div className="absolute top-4 right-4 z-10 w-[24rem] flex flex-col gap-3 max-h-[calc(100vh-2rem)] overflow-y-auto">
@@ -158,28 +209,27 @@ export default function GdacsRightFeed({
                   No active tropical systems detected.
                 </div>
               ) : (
-                <div className="space-y-2 max-h-[340px] overflow-y-auto pr-1">
+                <div className="space-y-2 max-h-[260px] overflow-y-auto pr-1">
                   {cyclones.map((evt) => {
                     const colors = alertBg[evt.alertLevel] || alertBg.green;
                     const hover = alertHover[evt.alertLevel] || alertHover.green;
                     const dot = alertDot[evt.alertLevel] || alertDot.green;
                     const sourceColor = SOURCE_COLORS[evt.source] || "text-neutral-400 border-neutral-700 bg-neutral-800/30";
+                    const isSelected = selectedCycloneId === evt.id;
                     return (
                       <div
                         key={evt.id}
-                        onClick={() => {
-                          if (evt.coordinates) {
-                            setHazardCenter(evt.coordinates);
-                            setMapFlyToCoords(evt.coordinates);
-                            setIncidentType("Tornado");
-                          }
-                        }}
-                        className={`group p-2.5 bg-neutral-950/50 border border-neutral-800 ${hover} rounded-xl cursor-pointer transition-all`}
+                        onClick={() => handleCycloneClick(evt)}
+                        className={`group p-2.5 border rounded-xl cursor-pointer transition-all ${
+                          isSelected
+                            ? "bg-purple-500/10 border-purple-500/40"
+                            : `bg-neutral-950/50 border-neutral-800 ${hover}`
+                        }`}
                       >
                         <div className="flex items-center justify-between gap-2 mb-1.5">
                           <div className="flex items-center gap-2 min-w-0">
                             <span className={`w-2 h-2 rounded-full shrink-0 ${dot}`} />
-                            <h5 className="text-[11px] font-bold text-neutral-100 truncate group-hover:text-emerald-300 transition-colors">
+                            <h5 className={`text-[11px] font-bold truncate transition-colors ${isSelected ? "text-purple-300" : "text-neutral-100 group-hover:text-emerald-300"}`}>
                               {evt.name}
                             </h5>
                           </div>
@@ -207,6 +257,78 @@ export default function GdacsRightFeed({
                       </div>
                     );
                   })}
+                </div>
+              )}
+
+              {/* Cities at Risk panel */}
+              {selectedCycloneId && (
+                <div className="border border-purple-500/30 rounded-xl overflow-hidden bg-purple-500/5">
+                  <button
+                    onClick={() => setCityPanelOpen((o) => !o)}
+                    className="w-full flex items-center justify-between px-3 py-2 text-[10px] font-black text-purple-300 uppercase tracking-wider hover:bg-purple-500/10 transition-all"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <Sparkles className="w-3 h-3" />
+                      Cities at Risk · AI Analysis
+                      {cityLoading && <Loader2 className="w-3 h-3 animate-spin ml-1" />}
+                      {!cityLoading && cityRisks.length > 0 && (
+                        <span className="text-[9px] font-bold bg-purple-500/20 border border-purple-500/30 px-1.5 py-0.5 rounded-full">
+                          {cityRisks.length}
+                        </span>
+                      )}
+                    </span>
+                    {cityPanelOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                  </button>
+
+                  {cityPanelOpen && (
+                    <div className="px-2 pb-2 space-y-1.5 max-h-[320px] overflow-y-auto">
+                      {cityLoading ? (
+                        <div className="text-center py-6 flex flex-col items-center gap-2">
+                          <Loader2 className="w-5 h-5 animate-spin text-purple-400" />
+                          <p className="text-[10px] text-neutral-400 font-semibold">Analysing cities along path...</p>
+                        </div>
+                      ) : cityRisks.length === 0 ? (
+                        <p className="text-center py-4 text-[10px] text-neutral-500 italic">No major cities found along this track.</p>
+                      ) : (
+                        cityRisks.map((city) => {
+                          const style = IMPACT_STYLES[city.impactLevel] || IMPACT_STYLES.watch;
+                          return (
+                            <div key={city.name} className="bg-neutral-950/60 rounded-lg p-2 border border-neutral-800/60">
+                              <div className="flex items-start justify-between gap-2 mb-1">
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  <MapPin className="w-2.5 h-2.5 text-purple-400 shrink-0" />
+                                  <span className="text-[11px] font-bold text-neutral-100 truncate">{city.name}</span>
+                                  {city.country && (
+                                    <span className="text-[9px] text-neutral-500 shrink-0">{city.country}</span>
+                                  )}
+                                </div>
+                                <span className={`text-[8px] font-black px-1.5 py-0.5 rounded border shrink-0 uppercase tracking-wide ${style.badge}`}>
+                                  {city.impactLevel}
+                                </span>
+                              </div>
+
+                              {city.population && (
+                                <p className="text-[9px] text-neutral-500 font-semibold flex items-center gap-1 mb-1 pl-4">
+                                  <Users className="w-2.5 h-2.5" />
+                                  ~{city.population.toLocaleString()} pop.
+                                </p>
+                              )}
+
+                              <p className="text-[9px] text-neutral-400 leading-relaxed mb-1.5 pl-4">{city.summary}</p>
+
+                              <div className="flex flex-wrap gap-1 pl-4">
+                                {city.risks.map((r) => (
+                                  <span key={r} className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-400 border border-neutral-700">
+                                    {r}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -245,19 +367,17 @@ export default function GdacsRightFeed({
                         onClick={() => {
                           if (evt.coordinates) {
                             setHazardCenter(evt.coordinates);
-                            setMapFlyToCoords(evt.coordinates);
                             setIncidentType("Earthquake");
+                            onEventSelect?.(evt);
                           }
                         }}
                         className={`group p-2.5 bg-neutral-950/50 border border-neutral-800 ${hover} rounded-xl cursor-pointer transition-all`}
                       >
                         <div className="flex items-center gap-2.5">
-                          {/* Magnitude badge */}
                           <div className={`shrink-0 w-10 h-10 rounded-xl flex flex-col items-center justify-center font-black ${magColor}`}>
                             <span className="text-sm leading-none">{evt.magnitude.toFixed(1)}</span>
                             <span className="text-[8px] font-bold opacity-70 leading-none mt-0.5">Mw</span>
                           </div>
-
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between gap-1 mb-0.5">
                               <h5 className="text-[11px] font-bold text-neutral-100 truncate group-hover:text-orange-300 transition-colors">
