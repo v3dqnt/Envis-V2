@@ -258,7 +258,7 @@ export default function PreventionSidebar({
 
   return (
     <div className="absolute top-4 left-4 z-10 w-[26rem] flex flex-col gap-4 max-h-[calc(100vh-2rem)] overflow-y-auto">
-      <Card className="glass-panel glow-border rounded-2xl overflow-hidden shrink-0 border-0">
+      <Card className="glass-panel glow-border rounded-2xl overflow-hidden shrink-0 border-0 [--card-spacing:1.25rem]">
         <CardHeader className="pb-4 border-b border-white/8 bg-white/2">
           <CardTitle className="text-2xl font-black tracking-tight flex items-center gap-2 text-white">
             <div className="w-8 h-8 rounded-xl flex items-center justify-center icon-bubble icon-bubble-emerald">
@@ -464,31 +464,43 @@ export default function PreventionSidebar({
                 </span>
               )}
             </Label>
-            <div className="grid grid-cols-3 gap-2">
-              {["Wildfire", "Flooding", "Toxic Plume", "Earthquake", "Tornado", "Radiation Leak", "Chemical Spill", "Blizzard", "Volcanic Eruption"].map((type) => (
-                <button
-                  key={type}
-                  type="button"
-                  onClick={() => setIncidentType(type)}
-                  className={`py-2 px-1 rounded-lg border text-xs font-bold transition-all flex flex-col items-center gap-1.5 ${
-                    incidentType === type
-                      ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 shadow-sm"
-                      : "bg-white/2 border-white/8 text-neutral-400 hover:bg-white/5 hover:text-white"
-                  }`}
-                >
-                  {type === "Wildfire" && <Fire className="w-4 h-4 text-orange-500" weight={incidentType === type ? "fill" : "duotone"} />}
-                  {type === "Flooding" && <Waves className="w-4 h-4 text-blue-500" weight={incidentType === type ? "fill" : "duotone"} />}
-                  {type === "Toxic Plume" && <Skull className="w-4 h-4 text-green-500" weight={incidentType === type ? "fill" : "duotone"} />}
-                  {type === "Earthquake" && <Pulse className="w-4 h-4 text-amber-500" weight={incidentType === type ? "fill" : "duotone"} />}
-                  {type === "Tornado" && <Wind className="w-4 h-4 text-teal-500" weight={incidentType === type ? "fill" : "duotone"} />}
-                  {type === "Radiation Leak" && <Radioactive className="w-4 h-4 text-lime-500" weight={incidentType === type ? "fill" : "duotone"} />}
-                  {type === "Chemical Spill" && <Biohazard className="w-4 h-4 text-yellow-500" weight={incidentType === type ? "fill" : "duotone"} />}
-                  {type === "Blizzard" && <Snowflake className="w-4 h-4 text-sky-400" weight={incidentType === type ? "fill" : "duotone"} />}
-                  {type === "Volcanic Eruption" && <Mountains className="w-4 h-4 text-rose-600" weight={incidentType === type ? "fill" : "duotone"} />}
-                  {type}
-                </button>
-              ))}
-            </div>
+            {(() => {
+              const types = [
+                { label: "Wildfire",         Icon: Fire,        color: "text-orange-400", activeBg: "bg-orange-500/15 border-orange-500/50 shadow-lg shadow-orange-500/20", bubbleBg: "icon-bubble-amber" },
+                { label: "Flooding",         Icon: Waves,       color: "text-blue-400",   activeBg: "bg-blue-500/15 border-blue-500/50 shadow-lg shadow-blue-500/20",       bubbleBg: "icon-bubble-blue"  },
+                { label: "Toxic Plume",      Icon: Skull,       color: "text-emerald-400",activeBg: "bg-emerald-500/15 border-emerald-500/50 shadow-lg shadow-emerald-500/20", bubbleBg: "icon-bubble-emerald" },
+                { label: "Earthquake",       Icon: Pulse,       color: "text-amber-400",  activeBg: "bg-amber-500/15 border-amber-500/50 shadow-lg shadow-amber-500/20",    bubbleBg: "icon-bubble-amber" },
+                { label: "Tornado",          Icon: Wind,        color: "text-cyan-400",   activeBg: "bg-cyan-500/15 border-cyan-500/50 shadow-lg shadow-cyan-500/20",       bubbleBg: "icon-bubble-blue"  },
+                { label: "Radiation Leak",   Icon: Radioactive, color: "text-lime-400",   activeBg: "bg-lime-500/15 border-lime-500/50 shadow-lg shadow-lime-500/20",       bubbleBg: "icon-bubble-emerald" },
+                { label: "Chemical Spill",   Icon: Biohazard,   color: "text-yellow-400", activeBg: "bg-yellow-500/15 border-yellow-500/50 shadow-lg shadow-yellow-500/20", bubbleBg: "icon-bubble-amber" },
+                { label: "Blizzard",         Icon: Snowflake,   color: "text-sky-400",    activeBg: "bg-sky-500/15 border-sky-500/50 shadow-lg shadow-sky-500/20",          bubbleBg: "icon-bubble-blue"  },
+                { label: "Volcanic Eruption",Icon: Mountains,   color: "text-rose-400",   activeBg: "bg-rose-500/15 border-rose-500/50 shadow-lg shadow-rose-500/20",       bubbleBg: "icon-bubble-red"   },
+              ];
+              return (
+                <div className="grid grid-cols-3 gap-2">
+                  {types.map(({ label, Icon, color, activeBg, bubbleBg }) => {
+                    const active = incidentType === label;
+                    return (
+                      <button
+                        key={label}
+                        type="button"
+                        onClick={() => setIncidentType(label)}
+                        className={`group relative py-3 px-1.5 rounded-xl border text-[11px] font-bold transition-all flex flex-col items-center gap-2 ${
+                          active
+                            ? `${activeBg} ${color}`
+                            : "bg-neutral-900/70 border-white/8 text-neutral-400 hover:bg-neutral-800/80 hover:text-white hover:border-white/15 hover:-translate-y-0.5"
+                        }`}
+                      >
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-transform group-hover:scale-110 ${active ? bubbleBg : "icon-bubble"}`}>
+                          <Icon weight={active ? "fill" : "duotone"} className={`w-4 h-4 ${active ? color : "text-neutral-300"}`} />
+                        </div>
+                        <span className="leading-tight text-center">{label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </div>
 
           {/* AI Audit Button */}
@@ -514,7 +526,7 @@ export default function PreventionSidebar({
 
       {/* AI Mitigation Directive panel */}
       {(aiLoading || strategyMarkdown || checklist.length > 0) && (
-        <Card className="glass-panel glow-border rounded-2xl overflow-hidden border-t-2 border-emerald-500 shrink-0">
+        <Card className="glass-panel glow-border rounded-2xl overflow-hidden border-t-2 border-emerald-500 shrink-0 [--card-spacing:1.25rem]">
           <CardHeader className="pb-3 border-b border-white/8 bg-white/2">
             <CardTitle className="text-base font-black tracking-tight flex items-center gap-2 text-white">
               <div className="w-8 h-8 rounded-xl flex items-center justify-center icon-bubble icon-bubble-emerald">

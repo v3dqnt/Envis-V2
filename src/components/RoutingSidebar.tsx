@@ -748,13 +748,13 @@ export default function RoutingSidebar({
 
   return (
     <div className="absolute top-4 left-4 z-10 w-[26rem] flex flex-col gap-4 max-h-[calc(100vh-2rem)] overflow-y-auto">
-      <div className="glass-panel glow-border rounded-2xl overflow-hidden shrink-0 shadow-2xl">
+      <div className="glass-panel glow-border rounded-2xl overflow-hidden shrink-0 shadow-2xl [--card-spacing:1.25rem] py-5">
         <CardHeader className="pb-4 border-b border-white/8 bg-white/4">
-          <CardTitle className="text-2xl font-black tracking-tight flex items-center gap-2 text-white">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center icon-bubble-red">
+          <CardTitle className="text-2xl font-black tracking-tight flex items-center gap-2">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center icon-bubble-red shrink-0">
               <ShieldWarning weight="duotone" className="w-5 h-5 text-red-400" />
             </div>
-            Aegis Route
+            <span className="text-gradient">Aegis Route</span>
           </CardTitle>
           <CardDescription className="text-neutral-400 font-semibold">
             AI-powered disaster routing & emergency dome placement
@@ -763,16 +763,16 @@ export default function RoutingSidebar({
 
         <CardContent className="pt-4 space-y-4">
           <Tabs defaultValue="hazard" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 mb-4 bg-white/4 border border-white/8 p-1 rounded-xl">
-              <TabsTrigger value="hazard" className="font-bold rounded-lg text-xs py-2">
+            <TabsList className="!h-auto grid w-full grid-cols-3 mb-4 bg-neutral-900/70 border border-white/8 p-1.5 rounded-xl gap-1">
+              <TabsTrigger value="hazard" className="font-bold rounded-lg text-[11px] py-2 data-active:!bg-emerald-500/15 data-active:!border-emerald-500/40 data-active:!text-emerald-300 text-neutral-400 hover:text-white transition-all">
                 <Target weight="duotone" className="w-3.5 h-3.5 mr-1" />
                 1. Affected
               </TabsTrigger>
-              <TabsTrigger value="route" className="font-bold rounded-lg text-xs py-2">
+              <TabsTrigger value="route" className="font-bold rounded-lg text-[11px] py-2 data-active:!bg-emerald-500/15 data-active:!border-emerald-500/40 data-active:!text-emerald-300 text-neutral-400 hover:text-white transition-all">
                 <NavigationArrow weight="duotone" className="w-3.5 h-3.5 mr-1" />
                 2. Navigate
               </TabsTrigger>
-              <TabsTrigger value="report" className="font-bold rounded-lg text-xs py-2">
+              <TabsTrigger value="report" className="font-bold rounded-lg text-[11px] py-2 data-active:!bg-emerald-500/15 data-active:!border-emerald-500/40 data-active:!text-emerald-300 text-neutral-400 hover:text-white transition-all">
                 <Warning weight="duotone" className="w-3.5 h-3.5 mr-1" />
                 3. Report
               </TabsTrigger>
@@ -780,66 +780,81 @@ export default function RoutingSidebar({
 
             {/* TAB 1: Affected Area & Hazard Dome Placement */}
             <TabsContent value="hazard" className="space-y-4 mt-0">
-              <div className="space-y-3 p-3.5 bg-white/4 border border-white/8 rounded-xl">
-                <Label className="font-bold text-neutral-400 border-l-2 border-emerald-500/60 pl-2">Disaster Classification</Label>
-                <div className="grid grid-cols-3 gap-2">
-                  {["Wildfire", "Flooding", "Toxic Plume", "Earthquake", "Tornado", "Radiation Leak", "Chemical Spill", "Blizzard", "Volcanic Eruption"].map((type) => (
-                    <button
-                      key={type}
-                      type="button"
-                      onClick={() => setIncidentType(type)}
-                      className={`py-2 px-1 rounded-lg border text-xs font-bold transition-all flex flex-col items-center gap-1.5 ${
-                        incidentType === type
-                          ? "bg-red-500/10 border-red-500/30 text-red-400 shadow-sm"
-                          : "bg-neutral-900 border-neutral-700 text-neutral-400 hover:bg-neutral-800"
-                      }`}
-                    >
-                      {type === "Wildfire" && <Fire weight={incidentType === type ? "fill" : "duotone"} className="w-4 h-4 text-orange-500" />}
-                      {type === "Flooding" && <Waves weight={incidentType === type ? "fill" : "duotone"} className="w-4 h-4 text-blue-500" />}
-                      {type === "Toxic Plume" && <Skull weight={incidentType === type ? "fill" : "duotone"} className="w-4 h-4 text-green-500" />}
-                      {type === "Earthquake" && <Pulse weight={incidentType === type ? "fill" : "duotone"} className="w-4 h-4 text-amber-500" />}
-                      {type === "Tornado" && <Wind weight={incidentType === type ? "fill" : "duotone"} className="w-4 h-4 text-teal-500" />}
-                      {type === "Radiation Leak" && <Radioactive weight={incidentType === type ? "fill" : "duotone"} className="w-4 h-4 text-lime-500" />}
-                      {type === "Chemical Spill" && <Biohazard weight={incidentType === type ? "fill" : "duotone"} className="w-4 h-4 text-yellow-500" />}
-                      {type === "Blizzard" && <Snowflake weight={incidentType === type ? "fill" : "duotone"} className="w-4 h-4 text-sky-400" />}
-                      {type === "Volcanic Eruption" && <Mountains weight={incidentType === type ? "fill" : "duotone"} className="w-4 h-4 text-rose-600" />}
-                      {type}
-                    </button>
-                  ))}
-                </div>
+              <div className="space-y-3 p-3.5 bg-neutral-900/60 border border-white/8 rounded-xl">
+                <Label className="font-black text-[11px] tracking-widest uppercase text-neutral-300 border-l-2 border-emerald-500/80 pl-2.5">Disaster Classification</Label>
+                {(() => {
+                  const types = [
+                    { label: "Wildfire",         Icon: Fire,        color: "text-orange-400", activeBg: "bg-orange-500/15 border-orange-500/50 shadow-lg shadow-orange-500/20", bubbleBg: "icon-bubble-amber" },
+                    { label: "Flooding",         Icon: Waves,       color: "text-blue-400",   activeBg: "bg-blue-500/15 border-blue-500/50 shadow-lg shadow-blue-500/20",       bubbleBg: "icon-bubble-blue"  },
+                    { label: "Toxic Plume",      Icon: Skull,       color: "text-emerald-400",activeBg: "bg-emerald-500/15 border-emerald-500/50 shadow-lg shadow-emerald-500/20", bubbleBg: "icon-bubble-emerald" },
+                    { label: "Earthquake",       Icon: Pulse,       color: "text-amber-400",  activeBg: "bg-amber-500/15 border-amber-500/50 shadow-lg shadow-amber-500/20",    bubbleBg: "icon-bubble-amber" },
+                    { label: "Tornado",          Icon: Wind,        color: "text-cyan-400",   activeBg: "bg-cyan-500/15 border-cyan-500/50 shadow-lg shadow-cyan-500/20",       bubbleBg: "icon-bubble-blue"  },
+                    { label: "Radiation Leak",   Icon: Radioactive, color: "text-lime-400",   activeBg: "bg-lime-500/15 border-lime-500/50 shadow-lg shadow-lime-500/20",       bubbleBg: "icon-bubble-emerald" },
+                    { label: "Chemical Spill",   Icon: Biohazard,   color: "text-yellow-400", activeBg: "bg-yellow-500/15 border-yellow-500/50 shadow-lg shadow-yellow-500/20", bubbleBg: "icon-bubble-amber" },
+                    { label: "Blizzard",         Icon: Snowflake,   color: "text-sky-400",    activeBg: "bg-sky-500/15 border-sky-500/50 shadow-lg shadow-sky-500/20",          bubbleBg: "icon-bubble-blue"  },
+                    { label: "Volcanic Eruption",Icon: Mountains,   color: "text-rose-400",   activeBg: "bg-rose-500/15 border-rose-500/50 shadow-lg shadow-rose-500/20",       bubbleBg: "icon-bubble-red"   },
+                  ];
+                  return (
+                    <div className="grid grid-cols-3 gap-2">
+                      {types.map(({ label, Icon, color, activeBg, bubbleBg }) => {
+                        const active = incidentType === label;
+                        return (
+                          <button
+                            key={label}
+                            type="button"
+                            onClick={() => setIncidentType(label)}
+                            className={`group relative py-3 px-1.5 rounded-xl border text-[11px] font-bold transition-all flex flex-col items-center gap-2 ${
+                              active
+                                ? `${activeBg} ${color}`
+                                : "bg-neutral-900/70 border-white/8 text-neutral-400 hover:bg-neutral-800/80 hover:text-white hover:border-white/15 hover:-translate-y-0.5"
+                            }`}
+                          >
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-transform group-hover:scale-110 ${active ? bubbleBg : "icon-bubble"}`}>
+                              <Icon weight={active ? "fill" : "duotone"} className={`w-4 h-4 ${active ? color : "text-neutral-300"}`} />
+                            </div>
+                            <span className="leading-tight text-center">{label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
               </div>
 
-              <form onSubmit={handleLocateHazard} className="space-y-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="hazard-loc" className="font-bold text-neutral-400">Locate Epicentre</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="hazard-loc"
-                      placeholder="e.g. Times Square, NY"
-                      value={hazardSearch}
-                      onChange={(e) => setHazardSearch(e.target.value)}
-                      className="bg-neutral-800 border-neutral-700 text-white placeholder-neutral-500 focus:border-emerald-500/60 focus-visible:ring-red-500 rounded-xl flex-grow font-semibold"
-                    />
-                    <Button type="submit" className="bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 font-bold rounded-xl px-4">
-                      Locate
-                    </Button>
-                  </div>
+              <form onSubmit={handleLocateHazard} className="space-y-2">
+                <Label htmlFor="hazard-loc" className="font-black text-[11px] tracking-widest uppercase text-neutral-300 border-l-2 border-emerald-500/80 pl-2.5">Locate Epicentre</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="hazard-loc"
+                    placeholder="e.g. Times Square, NY"
+                    value={hazardSearch}
+                    onChange={(e) => setHazardSearch(e.target.value)}
+                    className="bg-neutral-900/70 border-white/10 text-white placeholder-neutral-500 focus:border-emerald-500/60 focus-visible:ring-emerald-500/30 rounded-xl flex-grow font-semibold h-10"
+                  />
+                  <Button type="submit" className="bg-white/8 hover:bg-white/12 text-white border border-white/10 hover:border-white/20 font-bold rounded-xl px-5 h-10">
+                    Locate
+                  </Button>
                 </div>
               </form>
 
-              <div className="flex flex-col gap-2">
-                <div className="text-center font-semibold text-neutral-500 text-sm">OR</div>
-                <Button
+              <div className="flex flex-col gap-2.5">
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 h-px bg-white/10" />
+                  <span className="text-[10px] font-black tracking-widest text-neutral-500">OR</span>
+                  <div className="flex-1 h-px bg-white/10" />
+                </div>
+                <button
+                  type="button"
                   onClick={() => setIsPlacingHazard(true)}
-                  className={`w-full py-5 rounded-xl font-bold transition-all ${
+                  className={`w-full py-3.5 rounded-xl font-bold transition-all flex items-center justify-center gap-2 text-sm ${
                     isPlacingHazard
-                      ? "bg-amber-500 hover:bg-amber-600 text-white animate-pulse"
-                      : "bg-red-600 hover:bg-red-700 text-white shadow-md shadow-red-500/10"
+                      ? "bg-amber-500/20 border border-amber-500/50 text-amber-300 animate-pulse"
+                      : "btn-gradient text-white"
                   }`}
                 >
-                  <Target weight="duotone" className="w-5 h-5 mr-2" />
+                  <Target weight="duotone" className="w-5 h-5" />
                   {isPlacingHazard ? "Click on Map to Place Epicentre..." : "Tap to Place Epicentre"}
-                </Button>
+                </button>
               </div>
 
               {hazardCenter && (
@@ -1241,7 +1256,7 @@ export default function RoutingSidebar({
 
       {/* AI evacuation guidance panel */}
       {(aiLoading || aiRecommendation) && (
-        <div className="glass-panel glow-border rounded-2xl overflow-hidden shrink-0 shadow-2xl border-t-2 border-emerald-500/60">
+        <div className="glass-panel glow-border rounded-2xl overflow-hidden shrink-0 shadow-2xl border-t-2 border-emerald-500/60 [--card-spacing:1.25rem] py-5">
           <CardHeader className="pb-3 border-b border-white/8 bg-white/4">
             <CardTitle className="text-base font-black tracking-tight flex items-center gap-2 text-white">
               <div className="w-8 h-8 rounded-xl flex items-center justify-center icon-bubble-emerald">
