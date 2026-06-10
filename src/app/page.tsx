@@ -5,7 +5,8 @@ import MapDashboard from "@/components/MapDashboard";
 import RoutingSidebar from "@/components/RoutingSidebar";
 import PreventionSidebar from "@/components/PreventionSidebar";
 import GdacsRightFeed from "@/components/GdacsRightFeed";
-import { Navigation, ShieldAlert, Loader2 } from "lucide-react";
+import { Navigation, ShieldAlert, Loader2, LogOut } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 
 export default function Home() {
   const [mounted, setMounted] = useState(false);
@@ -24,6 +25,12 @@ export default function Home() {
   const [aiRecommendation, setAiRecommendation] = useState<string>("");
   const [aiLoading, setAiLoading] = useState<boolean>(false);
   const [evacuationPoints, setEvacuationPoints] = useState<any>(null);
+
+  const handleSignOut = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    window.location.href = "/auth/login";
+  };
 
   // Top Center Mode State
   const [mode, setMode] = useState<"routing" | "prevention">("routing");
@@ -287,6 +294,15 @@ export default function Home() {
 
   return (
     <main className="flex h-screen w-full flex-col relative overflow-hidden bg-neutral-100">
+      {/* Sign out button */}
+      <button
+        onClick={handleSignOut}
+        className="absolute top-4 right-4 z-20 bg-white/95 backdrop-blur-xl border border-neutral-200/80 p-2.5 rounded-xl shadow-xl text-neutral-500 hover:text-neutral-900 transition-colors cursor-pointer"
+        title="Sign out"
+      >
+        <LogOut className="w-4 h-4" />
+      </button>
+
       {/* Top Center Tabs Navigation */}
       <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 bg-white/95 backdrop-blur-xl border border-neutral-200/80 p-1 rounded-2xl shadow-xl flex gap-1 items-center">
         <button
