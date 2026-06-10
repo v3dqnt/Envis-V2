@@ -6,31 +6,30 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  Navigation, 
-  AlertTriangle, 
-  ShieldAlert, 
-  Navigation2, 
-  MapPin, 
-  Flame, 
-  Waves, 
-  Skull, 
-  Compass, 
-  Sparkles, 
-  Loader2, 
-  CheckCircle2, 
+import {
+  NavigationArrow,
+  Warning,
+  ShieldWarning,
+  MapPin,
+  Fire,
+  Waves,
+  Skull,
+  Compass,
+  Sparkle,
+  CircleNotch,
+  CheckCircle,
   Target,
-  Activity,
+  Pulse,
   Shield,
   Wind,
-  Radiation,
+  Radioactive,
   Snowflake,
   Biohazard,
-  Mountain,
+  Mountains,
   Radio,
-  Send,
-  Bell
-} from "lucide-react";
+  PaperPlaneTilt,
+  Bell,
+} from "@phosphor-icons/react";
 import { ReportIncidentModal } from "@/components/ReportIncidentModal";
 import {
   Dialog,
@@ -725,62 +724,64 @@ export default function RoutingSidebar({
   const getIncidentIcon = () => {
     switch (incidentType) {
       case "Wildfire":
-        return <Flame className="w-5 h-5 text-orange-500 animate-pulse" />;
+        return <Fire weight="duotone" className="w-5 h-5 text-orange-500 animate-pulse" />;
       case "Flooding":
-        return <Waves className="w-5 h-5 text-blue-500 animate-pulse" />;
+        return <Waves weight="duotone" className="w-5 h-5 text-blue-500 animate-pulse" />;
       case "Chemical Spill":
-        return <Biohazard className="w-5 h-5 text-yellow-500 animate-pulse" />;
+        return <Biohazard weight="duotone" className="w-5 h-5 text-yellow-500 animate-pulse" />;
       case "Toxic Plume":
-        return <Skull className="w-5 h-5 text-green-500 animate-pulse" />;
+        return <Skull weight="duotone" className="w-5 h-5 text-green-500 animate-pulse" />;
       case "Earthquake":
-        return <Activity className="w-5 h-5 text-amber-500 animate-pulse" />;
+        return <Pulse weight="duotone" className="w-5 h-5 text-amber-500 animate-pulse" />;
       case "Tornado":
-        return <Wind className="w-5 h-5 text-teal-500 animate-pulse" />;
+        return <Wind weight="duotone" className="w-5 h-5 text-teal-500 animate-pulse" />;
       case "Radiation Leak":
-        return <Radiation className="w-5 h-5 text-lime-500 animate-pulse" />;
+        return <Radioactive weight="duotone" className="w-5 h-5 text-lime-500 animate-pulse" />;
       case "Blizzard":
-        return <Snowflake className="w-5 h-5 text-sky-400 animate-pulse" />;
+        return <Snowflake weight="duotone" className="w-5 h-5 text-sky-400 animate-pulse" />;
       case "Volcanic Eruption":
-        return <Mountain className="w-5 h-5 text-rose-600 animate-pulse" />;
+        return <Mountains weight="duotone" className="w-5 h-5 text-rose-600 animate-pulse" />;
       default:
-        return <AlertTriangle className="w-5 h-5 text-amber-500 animate-pulse" />;
+        return <Warning weight="duotone" className="w-5 h-5 text-amber-500 animate-pulse" />;
     }
   };
 
   return (
     <div className="absolute top-4 left-4 z-10 w-[26rem] flex flex-col gap-4 max-h-[calc(100vh-2rem)] overflow-y-auto">
-      <Card className="shadow-2xl border-0 bg-white/90 backdrop-blur-xl supports-[backdrop-filter]:bg-white/70 rounded-2xl overflow-hidden shrink-0">
-        <CardHeader className="pb-4 border-b border-neutral-100 bg-neutral-50/50">
-          <CardTitle className="text-2xl font-black tracking-tight flex items-center gap-2 text-neutral-800">
-            <ShieldAlert className="w-7 h-7 text-red-500" />
+      <div className="glass-panel glow-border rounded-2xl overflow-hidden shrink-0 shadow-2xl">
+        <CardHeader className="pb-4 border-b border-white/8 bg-white/4">
+          <CardTitle className="text-2xl font-black tracking-tight flex items-center gap-2 text-white">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center icon-bubble-red">
+              <ShieldWarning weight="duotone" className="w-5 h-5 text-red-400" />
+            </div>
             Aegis Route
           </CardTitle>
-          <CardDescription className="text-neutral-500 font-semibold">
+          <CardDescription className="text-neutral-400 font-semibold">
             AI-powered disaster routing & emergency dome placement
           </CardDescription>
         </CardHeader>
 
         <CardContent className="pt-4 space-y-4">
           <Tabs defaultValue="hazard" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 mb-4 bg-neutral-100/70 p-1 rounded-xl">
+            <TabsList className="grid w-full grid-cols-3 mb-4 bg-white/4 border border-white/8 p-1 rounded-xl">
               <TabsTrigger value="hazard" className="font-bold rounded-lg text-xs py-2">
-                <Target className="w-3.5 h-3.5 mr-1" />
+                <Target weight="duotone" className="w-3.5 h-3.5 mr-1" />
                 1. Affected
               </TabsTrigger>
               <TabsTrigger value="route" className="font-bold rounded-lg text-xs py-2">
-                <Navigation className="w-3.5 h-3.5 mr-1" />
+                <NavigationArrow weight="duotone" className="w-3.5 h-3.5 mr-1" />
                 2. Navigate
               </TabsTrigger>
               <TabsTrigger value="report" className="font-bold rounded-lg text-xs py-2">
-                <AlertTriangle className="w-3.5 h-3.5 mr-1" />
+                <Warning weight="duotone" className="w-3.5 h-3.5 mr-1" />
                 3. Report
               </TabsTrigger>
             </TabsList>
 
             {/* TAB 1: Affected Area & Hazard Dome Placement */}
             <TabsContent value="hazard" className="space-y-4 mt-0">
-              <div className="space-y-3 p-3.5 bg-neutral-50 rounded-xl border border-neutral-100">
-                <Label className="font-bold text-neutral-700">Disaster Classification</Label>
+              <div className="space-y-3 p-3.5 bg-white/4 border border-white/8 rounded-xl">
+                <Label className="font-bold text-neutral-400 border-l-2 border-emerald-500/60 pl-2">Disaster Classification</Label>
                 <div className="grid grid-cols-3 gap-2">
                   {["Wildfire", "Flooding", "Toxic Plume", "Earthquake", "Tornado", "Radiation Leak", "Chemical Spill", "Blizzard", "Volcanic Eruption"].map((type) => (
                     <button
@@ -789,19 +790,19 @@ export default function RoutingSidebar({
                       onClick={() => setIncidentType(type)}
                       className={`py-2 px-1 rounded-lg border text-xs font-bold transition-all flex flex-col items-center gap-1.5 ${
                         incidentType === type
-                          ? "bg-red-50 border-red-200 text-red-700 shadow-sm"
-                          : "bg-white border-neutral-200 text-neutral-600 hover:bg-neutral-50"
+                          ? "bg-red-500/10 border-red-500/30 text-red-400 shadow-sm"
+                          : "bg-neutral-900 border-neutral-700 text-neutral-400 hover:bg-neutral-800"
                       }`}
                     >
-                      {type === "Wildfire" && <Flame className="w-4 h-4 text-orange-500" />}
-                      {type === "Flooding" && <Waves className="w-4 h-4 text-blue-500" />}
-                      {type === "Toxic Plume" && <Skull className="w-4 h-4 text-green-500" />}
-                      {type === "Earthquake" && <Activity className="w-4 h-4 text-amber-500" />}
-                      {type === "Tornado" && <Wind className="w-4 h-4 text-teal-500" />}
-                      {type === "Radiation Leak" && <Radiation className="w-4 h-4 text-lime-500" />}
-                      {type === "Chemical Spill" && <Biohazard className="w-4 h-4 text-yellow-500" />}
-                      {type === "Blizzard" && <Snowflake className="w-4 h-4 text-sky-400" />}
-                      {type === "Volcanic Eruption" && <Mountain className="w-4 h-4 text-rose-600" />}
+                      {type === "Wildfire" && <Fire weight={incidentType === type ? "fill" : "duotone"} className="w-4 h-4 text-orange-500" />}
+                      {type === "Flooding" && <Waves weight={incidentType === type ? "fill" : "duotone"} className="w-4 h-4 text-blue-500" />}
+                      {type === "Toxic Plume" && <Skull weight={incidentType === type ? "fill" : "duotone"} className="w-4 h-4 text-green-500" />}
+                      {type === "Earthquake" && <Pulse weight={incidentType === type ? "fill" : "duotone"} className="w-4 h-4 text-amber-500" />}
+                      {type === "Tornado" && <Wind weight={incidentType === type ? "fill" : "duotone"} className="w-4 h-4 text-teal-500" />}
+                      {type === "Radiation Leak" && <Radioactive weight={incidentType === type ? "fill" : "duotone"} className="w-4 h-4 text-lime-500" />}
+                      {type === "Chemical Spill" && <Biohazard weight={incidentType === type ? "fill" : "duotone"} className="w-4 h-4 text-yellow-500" />}
+                      {type === "Blizzard" && <Snowflake weight={incidentType === type ? "fill" : "duotone"} className="w-4 h-4 text-sky-400" />}
+                      {type === "Volcanic Eruption" && <Mountains weight={incidentType === type ? "fill" : "duotone"} className="w-4 h-4 text-rose-600" />}
                       {type}
                     </button>
                   ))}
@@ -810,16 +811,16 @@ export default function RoutingSidebar({
 
               <form onSubmit={handleLocateHazard} className="space-y-3">
                 <div className="space-y-1.5">
-                  <Label htmlFor="hazard-loc" className="font-bold text-neutral-700">Locate Epicentre</Label>
+                  <Label htmlFor="hazard-loc" className="font-bold text-neutral-400">Locate Epicentre</Label>
                   <div className="flex gap-2">
                     <Input
                       id="hazard-loc"
                       placeholder="e.g. Times Square, NY"
                       value={hazardSearch}
                       onChange={(e) => setHazardSearch(e.target.value)}
-                      className="bg-white border-neutral-200 focus-visible:ring-red-500 rounded-xl flex-grow font-semibold"
+                      className="bg-neutral-800 border-neutral-700 text-white placeholder-neutral-500 focus:border-emerald-500/60 focus-visible:ring-red-500 rounded-xl flex-grow font-semibold"
                     />
-                    <Button type="submit" className="bg-neutral-800 hover:bg-neutral-900 text-white font-bold rounded-xl px-4">
+                    <Button type="submit" className="bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 font-bold rounded-xl px-4">
                       Locate
                     </Button>
                   </div>
@@ -827,29 +828,29 @@ export default function RoutingSidebar({
               </form>
 
               <div className="flex flex-col gap-2">
-                <div className="text-center font-semibold text-neutral-400 text-sm">OR</div>
+                <div className="text-center font-semibold text-neutral-500 text-sm">OR</div>
                 <Button
                   onClick={() => setIsPlacingHazard(true)}
                   className={`w-full py-5 rounded-xl font-bold transition-all ${
                     isPlacingHazard
                       ? "bg-amber-500 hover:bg-amber-600 text-white animate-pulse"
-                      : "bg-red-600 hover:bg-red-700 text-white shadow-md shadow-red-100"
+                      : "bg-red-600 hover:bg-red-700 text-white shadow-md shadow-red-500/10"
                   }`}
                 >
-                  <Target className="w-5 h-5 mr-2" />
+                  <Target weight="duotone" className="w-5 h-5 mr-2" />
                   {isPlacingHazard ? "Click on Map to Place Epicentre..." : "Tap to Place Epicentre"}
                 </Button>
               </div>
 
               {hazardCenter && (
-                <div className="space-y-3 pt-3 border-t border-neutral-100">
+                <div className="space-y-3 pt-3 border-t border-neutral-800/60">
                   <div className="flex justify-between items-center text-xs font-bold text-neutral-500">
                     <span>EPICENTRE RADAR ACTIVE</span>
-                    <span className="text-red-600">[{hazardCenter[0].toFixed(4)}, {hazardCenter[1].toFixed(4)}]</span>
+                    <span className="text-red-400">[{hazardCenter[0].toFixed(4)}, {hazardCenter[1].toFixed(4)}]</span>
                   </div>
 
                   <div className="space-y-1.5">
-                    <div className="flex justify-between text-xs font-bold text-neutral-700">
+                    <div className="flex justify-between text-xs font-bold text-neutral-400">
                       <Label htmlFor="radius-slider">Impact Radius</Label>
                       <span>{hazardRadius}m ({(hazardRadius / 1000).toFixed(1)} km)</span>
                     </div>
@@ -861,12 +862,12 @@ export default function RoutingSidebar({
                       step="100"
                       value={hazardRadius}
                       onChange={(e) => setHazardRadius(Number(e.target.value))}
-                      className="w-full h-2 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-red-600"
+                      className="w-full h-2 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-red-600"
                     />
                   </div>
 
                   {/* Real-time Population Estimation Display */}
-                  <div className="p-3 bg-neutral-900 text-white rounded-xl border border-neutral-800 shadow-inner mt-2 space-y-2">
+                  <div className="p-3 bg-white/4 border border-white/8 text-white rounded-xl shadow-inner mt-2 space-y-2">
                     <div className="flex justify-between items-center">
                       <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Identified City</span>
                       <span className="text-xs font-extrabold text-neutral-100">{cityName || "Resolving..."}</span>
@@ -875,7 +876,7 @@ export default function RoutingSidebar({
                       <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Population Density</span>
                       <span className="text-xs font-extrabold text-emerald-400">
                         {densityLoading ? (
-                          <Loader2 className="w-3 h-3 animate-spin inline mr-1" />
+                          <CircleNotch weight="duotone" className="w-3 h-3 animate-spin inline mr-1" />
                         ) : densityPerKm2 ? (
                           `${densityPerKm2.toLocaleString()} ppl/km²`
                         ) : (
@@ -890,7 +891,7 @@ export default function RoutingSidebar({
                       </div>
                       <span className="text-lg font-black text-red-400 tracking-tight leading-none">
                         {densityLoading ? (
-                          <Loader2 className="w-4 h-4 animate-spin text-neutral-400" />
+                          <CircleNotch weight="duotone" className="w-4 h-4 animate-spin text-neutral-400" />
                         ) : densityPerKm2 !== null ? (
                           `${Math.round(Math.PI * Math.pow(hazardRadius / 1000, 2) * densityPerKm2).toLocaleString()}`
                         ) : (
@@ -907,40 +908,40 @@ export default function RoutingSidebar({
             <TabsContent value="route" className="space-y-4 mt-0">
               <form onSubmit={handleRoute} className="flex flex-col gap-4">
                 <div className="space-y-1.5">
-                  <Label htmlFor="start" className="font-bold text-neutral-700">Start Location</Label>
+                  <Label htmlFor="start" className="font-bold text-neutral-400">Start Location</Label>
                   <Input
                     id="start"
                     placeholder="Address or Landmark"
                     value={startPoint}
                     onChange={(e) => setStartPoint(e.target.value)}
-                    className="bg-white border-neutral-200 focus-visible:ring-blue-500 rounded-xl font-semibold"
+                    className="bg-neutral-800 border-neutral-700 text-white placeholder-neutral-500 focus:border-emerald-500/60 focus-visible:ring-blue-500 rounded-xl font-semibold"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="end" className="font-bold text-neutral-700">Destination (Safe Zone)</Label>
+                  <Label htmlFor="end" className="font-bold text-neutral-400">Destination (Safe Zone)</Label>
                   <Input
                     id="end"
                     placeholder="Evacuation Point or Safe City"
                     value={endPoint}
                     onChange={(e) => setEndPoint(e.target.value)}
-                    className="bg-white border-neutral-200 focus-visible:ring-blue-500 rounded-xl font-semibold"
+                    className="bg-neutral-800 border-neutral-700 text-white placeholder-neutral-500 focus:border-emerald-500/60 focus-visible:ring-blue-500 rounded-xl font-semibold"
                   />
                 </div>
 
                 <Button
                   type="submit"
                   disabled={routingLoading}
-                  className="w-full py-6 bg-blue-600 hover:bg-blue-700 text-white font-black text-base shadow-lg shadow-blue-100 rounded-xl transition-all flex items-center justify-center gap-2"
+                  className="btn-gradient w-full py-6 text-white font-bold text-base rounded-xl transition-all flex items-center justify-center gap-2"
                 >
                   {routingLoading ? (
                     <>
-                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <CircleNotch weight="duotone" className="w-5 h-5 animate-spin" />
                       Computing Detour...
                     </>
                   ) : (
                     <>
-                      <Navigation2 className="w-5 h-5" />
+                      <NavigationArrow weight="duotone" className="w-5 h-5" />
                       Generate Evacuation Route
                     </>
                   )}
@@ -949,8 +950,8 @@ export default function RoutingSidebar({
 
               {/* Recommended shelters list */}
               {hazardCenter && evacuationPoints && evacuationPoints.features && (
-                <div className="space-y-2.5 pt-4 mt-2 border-t border-neutral-100">
-                  <h4 className="font-bold text-neutral-800 text-xs flex items-center gap-1.5 uppercase tracking-wider">
+                <div className="space-y-2.5 pt-4 mt-2 border-t border-neutral-800/60">
+                  <h4 className="font-bold text-white text-xs flex items-center gap-1.5 uppercase tracking-wider border-l-2 border-emerald-500/60 pl-2">
                     Recommended Evacuation Shelters
                   </h4>
                   <div className="grid grid-cols-1 gap-2 max-h-[160px] overflow-y-auto pr-1">
@@ -962,13 +963,13 @@ export default function RoutingSidebar({
                           key={shelter.properties.id}
                           className={`p-2.5 rounded-xl border transition-all flex justify-between items-center ${
                             isSelected
-                              ? "bg-blue-50 border-blue-200 text-blue-800"
-                              : "bg-white border-neutral-100 hover:border-neutral-200 text-neutral-700 shadow-sm"
+                              ? "bg-blue-500/10 border-blue-500/30 text-blue-400"
+                              : "bg-neutral-800 border-neutral-800/60 hover:border-neutral-700 text-neutral-400 shadow-sm"
                           }`}
                         >
                           <div className="flex flex-col text-left">
                             <span className="text-xs font-black leading-tight">{shelter.properties.name}</span>
-                            <span className="text-[10px] text-neutral-400 font-semibold mt-0.5">
+                            <span className="text-[10px] text-neutral-500 font-semibold mt-0.5">
                               {getDistance(hazardCenter, coords).toFixed(1)} km outside dome
                             </span>
                           </div>
@@ -978,8 +979,8 @@ export default function RoutingSidebar({
                             onClick={() => setEndCoords([coords[0], coords[1]])}
                             className={`text-[10px] font-bold h-7 px-2.5 rounded-lg ${
                               isSelected
-                                ? "bg-blue-600 hover:bg-blue-700 text-white"
-                                : "bg-neutral-100 hover:bg-neutral-200 text-neutral-700 border border-neutral-200"
+                                ? "bg-emerald-500 hover:bg-emerald-400 text-white"
+                                : "bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700"
                             }`}
                           >
                             {isSelected ? "Selected" : "Select"}
@@ -995,28 +996,32 @@ export default function RoutingSidebar({
             {/* TAB 3: Incident Report Submission */}
             <TabsContent value="report" className="mt-0">
               <div className="flex flex-col gap-3">
-                <div className="p-3.5 bg-red-50/70 border border-red-100 rounded-xl">
+                <div className="p-3.5 bg-red-500/10 border border-red-500/30 rounded-xl">
                   <div className="flex items-start gap-2.5">
-                    <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                    <div className="w-8 h-8 rounded-xl flex items-center justify-center icon-bubble-red shrink-0 mt-0.5">
+                      <Warning weight="duotone" className="w-4 h-4 text-red-400" />
+                    </div>
                     <div>
-                      <h4 className="font-bold text-red-900 text-sm">Wildfire reported</h4>
-                      <p className="text-xs text-red-700 font-medium mt-0.5">2.4 miles away • Moving Northeast</p>
+                      <h4 className="font-bold text-red-400 text-sm">Wildfire reported</h4>
+                      <p className="text-xs text-red-400 font-medium mt-0.5">2.4 miles away • Moving Northeast</p>
                     </div>
                   </div>
                 </div>
 
-                <div className="p-3.5 bg-amber-50/70 border border-amber-100 rounded-xl">
+                <div className="p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-xl">
                   <div className="flex items-start gap-2.5">
-                    <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                    <div className="w-8 h-8 rounded-xl flex items-center justify-center icon-bubble-amber shrink-0 mt-0.5">
+                      <Warning weight="duotone" className="w-4 h-4 text-amber-400" />
+                    </div>
                     <div>
-                      <h4 className="font-bold text-amber-900 text-sm">Road Blocked</h4>
-                      <p className="text-xs text-amber-700 font-medium mt-0.5">I-95 Southbound due to debris</p>
+                      <h4 className="font-bold text-amber-400 text-sm">Road Blocked</h4>
+                      <p className="text-xs text-amber-400 font-medium mt-0.5">I-95 Southbound due to debris</p>
                     </div>
                   </div>
                 </div>
 
                 <ReportIncidentModal>
-                  <Button variant="outline" className="w-full mt-2 border-neutral-200 text-neutral-700 font-bold py-5 rounded-xl bg-white/50 hover:bg-red-50 hover:text-red-700 hover:border-red-200 shadow-sm transition-all">
+                  <Button variant="outline" className="w-full mt-2 border-neutral-700 text-neutral-200 font-bold py-5 rounded-xl bg-neutral-800 hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/30 shadow-sm transition-all">
                     Report New Incident
                   </Button>
                 </ReportIncidentModal>
@@ -1027,57 +1032,57 @@ export default function RoutingSidebar({
                   disabled={!hazardCenter || alertLoading}
                   className={`w-full py-5 rounded-xl font-bold transition-all flex items-center justify-center gap-2 ${
                     !hazardCenter 
-                      ? "bg-neutral-100 text-neutral-450 border border-neutral-200 cursor-not-allowed"
-                      : "bg-red-600 hover:bg-red-700 text-white shadow-md shadow-red-100 border border-red-700 animate-pulse hover:animate-none"
+                      ? "bg-neutral-800 text-neutral-500 border border-neutral-700 cursor-not-allowed"
+                      : "bg-red-600 hover:bg-red-700 text-white shadow-md shadow-red-500/10 border border-red-700 animate-pulse hover:animate-none"
                   }`}
                 >
                   {alertLoading ? (
                     <>
-                      <Loader2 className="w-4 h-4 animate-spin text-white" />
+                      <CircleNotch weight="duotone" className="w-4 h-4 animate-spin text-white" />
                       Broadcasting Alert Signals...
                     </>
                   ) : (
                     <>
-                      <Radio className="w-4 h-4" />
+                      <Radio weight="duotone" className="w-4 h-4" />
                       {!hazardCenter ? "Place Epicentre to Enable Alerts" : "Alert Nearby Emergency Services"}
                     </>
                   )}
                 </Button>
 
                 {/* Nearby Emergency Services Section */}
-                <div className="mt-4 border-t border-neutral-100 pt-4">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-500 mb-3 flex items-center gap-1.5">
-                    <ShieldAlert className="w-4 h-4 text-neutral-400" />
+                <div className="mt-4 border-t border-neutral-800/60 pt-4">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-500 mb-3 flex items-center gap-1.5 border-l-2 border-emerald-500/60 pl-2">
+                    <ShieldWarning weight="duotone" className="w-4 h-4 text-neutral-500" />
                     Nearby Emergency Services
                   </h4>
 
                   {facilitiesLoading ? (
-                    <div className="flex items-center justify-center py-6 text-neutral-400 text-xs gap-2">
-                      <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+                    <div className="flex items-center justify-center py-6 text-neutral-500 text-xs gap-2">
+                      <CircleNotch weight="duotone" className="w-4 h-4 animate-spin text-blue-400" />
                       Locating emergency facilities...
                     </div>
                   ) : !hazardCenter ? (
-                    <p className="text-xs text-neutral-400 italic py-4 text-center bg-neutral-50 rounded-xl border border-dashed border-neutral-200">
+                    <p className="text-xs text-neutral-500 italic py-4 text-center bg-neutral-800 rounded-xl border border-dashed border-neutral-700">
                       Place a hazard dome on the map to locate nearby emergency services.
                     </p>
                   ) : emergencyFacilities.length === 0 ? (
-                    <p className="text-xs text-neutral-400 italic py-4 text-center bg-neutral-50 rounded-xl border border-dashed border-neutral-200">
+                    <p className="text-xs text-neutral-500 italic py-4 text-center bg-neutral-800 rounded-xl border border-dashed border-neutral-700">
                       No emergency services detected within 8km.
                     </p>
                   ) : (
                     <div className="max-h-[350px] overflow-y-auto pr-1 space-y-2">
                       {emergencyFacilities.map((fac, idx) => {
-                        let Icon = ShieldAlert;
-                        let typeColor = "text-neutral-500 bg-neutral-100";
+                        let Icon: React.ElementType = ShieldWarning;
+                        let typeColor = "text-neutral-400 bg-neutral-800";
                         if (fac.type === "Hospital" || fac.type === "Clinic") {
-                          Icon = Activity;
-                          typeColor = "text-emerald-600 bg-emerald-50";
+                          Icon = Pulse;
+                          typeColor = "text-emerald-400 bg-emerald-500/10";
                         } else if (fac.type === "Fire Station") {
-                          Icon = Flame;
-                          typeColor = "text-orange-600 bg-orange-50";
+                          Icon = Fire;
+                          typeColor = "text-orange-400 bg-orange-500/10";
                         } else if (fac.type === "Police Station") {
                           Icon = Shield;
-                          typeColor = "text-blue-600 bg-blue-50";
+                          typeColor = "text-blue-400 bg-blue-500/10";
                         }
 
                         const isInside = fac.status === "Inside Dome";
@@ -1090,17 +1095,17 @@ export default function RoutingSidebar({
                                 setMapFlyToCoords(fac.coordinates);
                               }
                             }}
-                            className="group p-3 bg-white border border-neutral-200/80 rounded-xl hover:border-blue-400 hover:shadow-sm transition-all duration-200 cursor-pointer flex items-start justify-between gap-3"
+                            className="group p-3 bg-neutral-800 border border-neutral-700 rounded-xl hover:border-blue-400 hover:shadow-sm transition-all duration-200 cursor-pointer flex items-start justify-between gap-3"
                           >
                             <div className="flex items-start gap-2.5 min-w-0">
                               <div className={`p-2 rounded-lg shrink-0 ${typeColor}`}>
-                                <Icon className="w-4 h-4" />
+                                <Icon weight="duotone" className="w-4 h-4" />
                               </div>
                               <div className="min-w-0">
-                                <h5 className="font-bold text-neutral-800 text-xs truncate group-hover:text-blue-600 transition-colors">
+                                <h5 className="font-bold text-white text-xs truncate group-hover:text-blue-400 transition-colors">
                                   {fac.name}
                                 </h5>
-                                <p className="text-[10px] text-neutral-400 mt-0.5 truncate">{fac.address}</p>
+                                <p className="text-[10px] text-neutral-500 mt-0.5 truncate">{fac.address}</p>
                                 <p className="text-[10px] font-semibold text-neutral-500 mt-1 flex items-center gap-1">
                                   <span>{Math.round(fac.distance)}m away</span>
                                   <span>•</span>
@@ -1110,8 +1115,8 @@ export default function RoutingSidebar({
                             </div>
                             <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full shrink-0 border uppercase tracking-wider ${
                               isInside 
-                                ? "bg-red-50 text-red-600 border-red-100" 
-                                : "bg-emerald-50 text-emerald-600 border-emerald-100"
+                                ? "bg-red-500/10 text-red-400 border-red-500/30"
+                                : "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
                             }`}>
                               {isInside ? "Trapped" : "Active"}
                             </span>
@@ -1126,23 +1131,23 @@ export default function RoutingSidebar({
           </Tabs>
 
           {errorMessage && (
-            <div className="p-3 bg-red-50 border border-red-100 text-red-700 text-xs font-bold rounded-xl">
+            <div className="p-3 bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-bold rounded-xl">
               {errorMessage}
             </div>
           )}
 
           {/* Route Metrics */}
           {routeGeoJSON && (
-            <div className="space-y-3 pt-4 border-t border-neutral-100">
-              <h3 className="font-bold text-neutral-800 text-sm flex items-center gap-1.5">
-                <Compass className="w-4 h-4 text-neutral-600" />
+            <div className="space-y-3 pt-4 border-t border-neutral-800/60">
+              <h3 className="font-bold text-white text-sm flex items-center gap-1.5 border-l-2 border-emerald-500/60 pl-2">
+                <Compass weight="duotone" className="w-4 h-4 text-neutral-400" />
                 Evacuation Route Statistics
               </h3>
-              
+
               <div className="grid grid-cols-2 gap-2.5">
-                <div className="p-3 bg-neutral-50 border border-neutral-100 rounded-xl flex flex-col">
-                  <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Direct Distance</span>
-                  <span className="text-base font-black text-neutral-800">
+                <div className="bg-white/4 border border-white/8 rounded-xl p-3 flex flex-col">
+                  <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Direct Distance</span>
+                  <span className="text-base font-black text-white">
                     {routeGeoJSON.properties.distance.toFixed(2)} km
                   </span>
                   <span className="text-[10px] font-semibold text-neutral-500">
@@ -1151,29 +1156,31 @@ export default function RoutingSidebar({
                 </div>
 
                 {bypassRouteGeoJSON ? (
-                  <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-xl flex flex-col">
-                    <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Detour Path</span>
-                    <span className="text-base font-black text-emerald-800">
+                  <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl flex flex-col">
+                    <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Detour Path</span>
+                    <span className="text-base font-black text-emerald-400">
                       {bypassRouteGeoJSON.properties.distance.toFixed(2)} km
                     </span>
-                    <span className="text-[10px] font-semibold text-emerald-600">
+                    <span className="text-[10px] font-semibold text-emerald-400">
                       ~ {Math.round(bypassRouteGeoJSON.properties.duration)} mins
                     </span>
                   </div>
                 ) : (
-                  <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl flex flex-col justify-center">
-                    <div className="flex items-center gap-1.5 text-xs font-black text-blue-700">
-                      <CheckCircle2 className="w-4 h-4" />
+                  <div className="bg-white/4 border border-white/8 rounded-xl p-3 flex flex-col justify-center">
+                    <div className="flex items-center gap-1.5 text-xs font-black text-blue-400">
+                      <CheckCircle weight="fill" className="w-4 h-4" />
                       Direct Route Safe
                     </div>
-                    <span className="text-[10px] text-blue-500 font-semibold mt-0.5">No detour required.</span>
+                    <span className="text-[10px] text-blue-400 font-semibold mt-0.5">No detour required.</span>
                   </div>
                 )}
               </div>
 
               {bypassRouteGeoJSON && (
-                <div className="p-3 bg-amber-50 border border-amber-100 rounded-xl text-xs text-amber-800 font-semibold flex gap-2">
-                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-xs text-amber-400 font-semibold flex gap-2">
+                  <div className="w-8 h-8 rounded-xl flex items-center justify-center icon-bubble-amber shrink-0">
+                    <Warning weight="duotone" className="w-4 h-4 text-amber-400" />
+                  </div>
                   <div>
                     <span>Primary route compromised by danger zone. Detour bypasses danger area (+{((bypassRouteGeoJSON.properties.distance - routeGeoJSON.properties.distance)).toFixed(2)} km).</span>
                   </div>
@@ -1182,8 +1189,10 @@ export default function RoutingSidebar({
 
               {/* TomTom Traffic Delay Info */}
               {routeGeoJSON.properties.isTomTom && routeGeoJSON.properties.trafficDelayMins > 0 && (
-                <div className="p-3 bg-rose-50 border border-rose-100 rounded-xl text-xs text-rose-800 font-semibold flex gap-2">
-                  <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-xs text-rose-400 font-semibold flex gap-2">
+                  <div className="w-8 h-8 rounded-xl flex items-center justify-center icon-bubble-red shrink-0">
+                    <Warning weight="duotone" className="w-4 h-4 text-rose-400" />
+                  </div>
                   <div>
                     <span>Live Traffic Congestion: TomTom detected a +{routeGeoJSON.properties.trafficDelayMins} min real-world traffic delay along this path.</span>
                   </div>
@@ -1192,22 +1201,22 @@ export default function RoutingSidebar({
 
               {/* TomTom Incidents List */}
               {routeGeoJSON.properties.isTomTom && routeGeoJSON.properties.incidents && routeGeoJSON.properties.incidents.length > 0 && (
-                <div className="p-3 bg-orange-50/70 border border-orange-100 rounded-xl space-y-2">
+                <div className="p-3 bg-orange-500/10 border border-orange-500/30 rounded-xl space-y-2">
                   <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-bold text-orange-800 uppercase tracking-wider flex items-center gap-1">
-                      <Compass className="w-3.5 h-3.5" />
+                    <span className="text-[10px] font-bold text-orange-400 uppercase tracking-wider flex items-center gap-1">
+                      <Compass weight="duotone" className="w-3.5 h-3.5" />
                       TomTom Live Traffic Incidents
                     </span>
-                    <span className="text-[9px] bg-orange-200 text-orange-800 font-extrabold px-1.5 py-0.5 rounded-full">
+                    <span className="text-[9px] bg-orange-500/20 text-orange-400 font-extrabold px-1.5 py-0.5 rounded-full">
                       {routeGeoJSON.properties.incidents.length}
                     </span>
                   </div>
                   <div className="space-y-1.5 max-h-[120px] overflow-y-auto pr-1">
                     {routeGeoJSON.properties.incidents.map((inc: any, idx: number) => (
-                      <div key={idx} className="flex items-start gap-1.5 text-xs text-neutral-700 font-medium bg-white/55 p-1.5 rounded-lg border border-neutral-100/60">
-                        <AlertTriangle className="w-3.5 h-3.5 text-orange-600 shrink-0 mt-0.5" />
+                      <div key={idx} className="flex items-start gap-1.5 text-xs text-neutral-400 font-medium bg-neutral-800 p-1.5 rounded-lg border border-neutral-800/60">
+                        <Warning weight="duotone" className="w-3.5 h-3.5 text-orange-400 shrink-0 mt-0.5" />
                         <div>
-                          <div className="font-bold text-neutral-800">{inc.label}</div>
+                          <div className="font-bold text-white">{inc.label}</div>
                           <div className="text-[10px] text-neutral-500 font-semibold">
                             {inc.delayMins > 0 ? `Adds ${inc.delayMins} min delay` : `No major delay`} • Avg Speed: {Math.round(inc.speedKmh)} km/h
                           </div>
@@ -1220,7 +1229,7 @@ export default function RoutingSidebar({
 
               {/* TomTom Attribution Badge */}
               {routeGeoJSON.properties.isTomTom && (
-                <div className="text-[9px] text-neutral-400 font-bold text-right tracking-wider uppercase pr-1 flex items-center justify-end gap-1.5">
+                <div className="text-[9px] text-neutral-500 font-bold text-right tracking-wider uppercase pr-1 flex items-center justify-end gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                   Real-time Traffic provided by TomTom API
                 </div>
@@ -1228,14 +1237,16 @@ export default function RoutingSidebar({
             </div>
           )}
         </CardContent>
-      </Card>
+      </div>
 
       {/* AI evacuation guidance panel */}
       {(aiLoading || aiRecommendation) && (
-        <Card className="shadow-2xl border-0 bg-neutral-900 text-white rounded-2xl overflow-hidden border-t-2 border-emerald-500 shrink-0">
-          <CardHeader className="pb-3 border-b border-neutral-800 bg-neutral-950/40">
+        <div className="glass-panel glow-border rounded-2xl overflow-hidden shrink-0 shadow-2xl border-t-2 border-emerald-500/60">
+          <CardHeader className="pb-3 border-b border-white/8 bg-white/4">
             <CardTitle className="text-base font-black tracking-tight flex items-center gap-2 text-white">
-              <Sparkles className="w-5 h-5 text-emerald-400" />
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center icon-bubble-emerald">
+                <Sparkle weight="fill" className="w-4 h-4 text-emerald-400" />
+              </div>
               AI Evacuation Advisor
               {getIncidentIcon()}
             </CardTitle>
@@ -1246,7 +1257,7 @@ export default function RoutingSidebar({
           <CardContent className="pt-4">
             {aiLoading ? (
               <div className="flex flex-col items-center justify-center py-6 gap-3 text-neutral-400">
-                <Loader2 className="w-7 h-7 animate-spin text-emerald-400" />
+                <CircleNotch weight="duotone" className="w-7 h-7 animate-spin text-emerald-400" />
                 <span className="text-xs font-bold tracking-wide animate-pulse">GENERATING SAFETY DIRECTIVES...</span>
               </div>
             ) : (
@@ -1275,7 +1286,7 @@ export default function RoutingSidebar({
               </div>
             )}
           </CardContent>
-        </Card>
+        </div>
       )}
 
       {/* Alert Success Dialog */}
@@ -1283,8 +1294,8 @@ export default function RoutingSidebar({
         <DialogContent className="sm:max-w-[480px] bg-neutral-900 border border-neutral-800 text-white rounded-2xl p-6 shadow-2xl">
           <DialogHeader className="space-y-3">
             <div className="flex items-center gap-3">
-              <div className="p-3 bg-red-500/10 rounded-full border border-red-500/20 text-red-400 animate-pulse">
-                <Bell className="w-7 h-7" />
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center icon-bubble-red animate-pulse">
+                <Bell weight="duotone" className="w-5 h-5 text-red-400" />
               </div>
               <div>
                 <DialogTitle className="text-xl font-black tracking-tight text-white flex items-center gap-2">
@@ -1327,7 +1338,7 @@ export default function RoutingSidebar({
                   <div className="flex items-start justify-between p-3 bg-neutral-950/30 border border-neutral-800/80 rounded-xl gap-3">
                     <div className="flex items-start gap-2.5 min-w-0">
                       <div className="p-1.5 bg-blue-500/10 text-blue-400 rounded-lg shrink-0">
-                        <Shield className="w-4 h-4" />
+                        <Shield weight="duotone" className="w-4 h-4" />
                       </div>
                       <div className="min-w-0">
                         <h5 className="font-bold text-white text-xs truncate">{alertedFacilities.police.name}</h5>
@@ -1348,7 +1359,7 @@ export default function RoutingSidebar({
                   <div className="flex items-start justify-between p-3 bg-neutral-950/30 border border-neutral-800/80 rounded-xl gap-3">
                     <div className="flex items-start gap-2.5 min-w-0">
                       <div className="p-1.5 bg-orange-500/10 text-orange-400 rounded-lg shrink-0">
-                        <Flame className="w-4 h-4" />
+                        <Fire weight="duotone" className="w-4 h-4" />
                       </div>
                       <div className="min-w-0">
                         <h5 className="font-bold text-white text-xs truncate">{alertedFacilities.fire.name}</h5>
@@ -1370,7 +1381,7 @@ export default function RoutingSidebar({
                     <div key={idx} className="flex items-start justify-between p-3 bg-neutral-950/30 border border-neutral-800/80 rounded-xl gap-3">
                       <div className="flex items-start gap-2.5 min-w-0">
                         <div className="p-1.5 bg-emerald-500/10 text-emerald-400 rounded-lg shrink-0">
-                          <Activity className="w-4 h-4" />
+                          <Pulse weight="duotone" className="w-4 h-4" />
                         </div>
                         <div className="min-w-0">
                           <h5 className="font-bold text-white text-xs truncate">{hc.name}</h5>
@@ -1397,7 +1408,7 @@ export default function RoutingSidebar({
               onClick={() => setAlertSuccess(false)}
               className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-5 rounded-xl border border-emerald-500 shadow-md shadow-emerald-950 transition-all flex items-center justify-center gap-2"
             >
-              <CheckCircle2 className="w-4 h-4" />
+              <CheckCircle weight="fill" className="w-4 h-4" />
               Acknowledge Alert
             </Button>
           </DialogFooter>

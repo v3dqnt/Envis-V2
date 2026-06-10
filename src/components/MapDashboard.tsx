@@ -79,7 +79,7 @@ export default function MapDashboard({
 
     map.current = new maplibregl.Map({
       container: mapContainer.current,
-      style: `https://api.maptiler.com/maps/streets-v2/style.json?key=${mapTilerKey}`,
+      style: `https://api.maptiler.com/maps/streets-v2-dark/style.json?key=${mapTilerKey}`,
       center: [-74.006, 40.7128], // starting position [lng, lat] (NYC)
       zoom: 13,
       pitch: 45,
@@ -548,7 +548,7 @@ export default function MapDashboard({
                  'type': 'fill-extrusion',
                  'minzoom': 15,
                  'paint': {
-                     'fill-extrusion-color': '#aaa',
+                     'fill-extrusion-color': '#3f3f46',
                      'fill-extrusion-height': [
                          'interpolate', ['linear'], ['zoom'],
                          15, 0,

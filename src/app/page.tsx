@@ -5,8 +5,13 @@ import MapDashboard from "@/components/MapDashboard";
 import RoutingSidebar from "@/components/RoutingSidebar";
 import PreventionSidebar from "@/components/PreventionSidebar";
 import GdacsRightFeed from "@/components/GdacsRightFeed";
-import { Navigation, ShieldAlert, Loader2, LogOut } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import {
+  NavigationArrow,
+  ShieldWarning,
+  SignOut,
+} from "@phosphor-icons/react";
 
 export default function Home() {
   const [mounted, setMounted] = useState(false);
@@ -283,48 +288,59 @@ export default function Home() {
 
   if (!mounted) {
     return (
-      <main className="h-screen w-full bg-neutral-900 flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3 text-neutral-400">
-          <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
-          <span className="text-xs font-bold tracking-widest uppercase animate-pulse">Initializing Aegis Command Center...</span>
+      <main className="h-screen w-full bg-[#070709] flex items-center justify-center relative overflow-hidden">
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full bg-emerald-500/5 blur-[100px]" />
+        </div>
+        <div className="flex flex-col items-center gap-4 relative z-10">
+          <div className="relative">
+            <div className="absolute inset-0 rounded-2xl bg-emerald-500/30 blur-xl scale-150 animate-pulse" />
+            <div className="icon-bubble-emerald w-14 h-14 rounded-2xl flex items-center justify-center relative">
+              <Loader2 className="w-7 h-7 animate-spin text-emerald-400" />
+            </div>
+          </div>
+          <div className="flex flex-col items-center gap-1">
+            <span className="text-white font-black text-sm tracking-widest uppercase">Aegis</span>
+            <span className="text-neutral-500 text-xs tracking-widest uppercase animate-pulse">Initializing Command Center...</span>
+          </div>
         </div>
       </main>
     );
   }
 
   return (
-    <main className="flex h-screen w-full flex-col relative overflow-hidden bg-neutral-100">
+    <main className="flex h-screen w-full flex-col relative overflow-hidden bg-[#070709]">
       {/* Sign out button */}
       <button
         onClick={handleSignOut}
-        className="absolute top-4 right-4 z-20 bg-white/95 backdrop-blur-xl border border-neutral-200/80 p-2.5 rounded-xl shadow-xl text-neutral-500 hover:text-neutral-900 transition-colors cursor-pointer"
+        className="absolute top-4 right-4 z-20 glass-panel p-2.5 rounded-xl text-neutral-500 hover:text-white transition-all hover:border-white/15 cursor-pointer"
         title="Sign out"
       >
-        <LogOut className="w-4 h-4" />
+        <SignOut weight="duotone" size={16} />
       </button>
 
       {/* Top Center Tabs Navigation */}
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 bg-white/95 backdrop-blur-xl border border-neutral-200/80 p-1 rounded-2xl shadow-xl flex gap-1 items-center">
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 glass-panel p-1 rounded-2xl flex gap-1 items-center">
         <button
           onClick={() => setMode("routing")}
           className={`px-5 py-2.5 rounded-xl text-xs font-black tracking-wide transition-all flex items-center gap-2 cursor-pointer ${
             mode === "routing"
-              ? "bg-neutral-900 text-white shadow-md"
-              : "text-neutral-600 hover:text-neutral-950 hover:bg-neutral-50"
+              ? "btn-gradient text-white shadow-lg"
+              : "text-neutral-400 hover:text-white hover:bg-white/5"
           }`}
         >
-          <Navigation className="w-3.5 h-3.5" />
+          <NavigationArrow weight={mode === "routing" ? "fill" : "duotone"} size={14} />
           Evacuation Routing
         </button>
         <button
           onClick={() => setMode("prevention")}
           className={`px-5 py-2.5 rounded-xl text-xs font-black tracking-wide transition-all flex items-center gap-2 cursor-pointer ${
             mode === "prevention"
-              ? "bg-neutral-900 text-white shadow-md"
-              : "text-neutral-600 hover:text-neutral-950 hover:bg-neutral-50"
+              ? "btn-gradient text-white shadow-lg"
+              : "text-neutral-400 hover:text-white hover:bg-white/5"
           }`}
         >
-          <ShieldAlert className="w-3.5 h-3.5" />
+          <ShieldWarning weight={mode === "prevention" ? "fill" : "duotone"} size={14} />
           Disaster Prevention
         </button>
       </div>
