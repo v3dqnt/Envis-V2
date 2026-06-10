@@ -418,7 +418,7 @@ export default function Home() {
         />
       )}
 
-      {/* Multi-source live feed panel — only in Aegis Prevent */}
+      {/* Multi-source live feed panel — only in Envis Prevent */}
       {mode === "prevention" && (
         <GdacsRightFeed
           cyclones={liveCyclones}

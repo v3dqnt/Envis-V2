@@ -6,8 +6,8 @@ A real-time disaster intelligence platform built with Next.js 16 + MapLibre GL. 
 
 | Module | Description |
 |---|---|
-| **Aegis Route** | Real-time evacuation routing around active hazard zones with AI shelter recommendations |
-| **Aegis Prevent** | Climate-informed structural auditing using Open-Meteo weather archive + OpenAI analysis |
+| **Envis Route** | Real-time evacuation routing around active hazard zones with AI shelter recommendations |
+| **Envis Prevent** | Climate-informed structural auditing using Open-Meteo weather archive + OpenAI analysis |
 
 ---
 

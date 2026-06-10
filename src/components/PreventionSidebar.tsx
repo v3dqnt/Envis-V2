@@ -264,7 +264,7 @@ export default function PreventionSidebar({
             <div className="w-8 h-8 rounded-xl flex items-center justify-center icon-bubble icon-bubble-emerald">
               <ShieldCheck className="w-5 h-5" weight="duotone" />
             </div>
-            <span className="border-l-2 border-emerald-500/60 pl-2">Aegis Prevent</span>
+            <span className="border-l-2 border-emerald-500/60 pl-2">Envis Prevent</span>
           </CardTitle>
           <CardDescription className="text-neutral-500 font-semibold">
             AI-powered structural auditing and disaster mitigation

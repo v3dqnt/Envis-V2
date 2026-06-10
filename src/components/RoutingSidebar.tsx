@@ -754,7 +754,7 @@ export default function RoutingSidebar({
             <div className="w-9 h-9 rounded-xl flex items-center justify-center icon-bubble-red shrink-0">
               <ShieldWarning weight="duotone" className="w-5 h-5 text-red-400" />
             </div>
-            <span className="text-gradient">Aegis Route</span>
+            <span className="text-gradient">Envis Route</span>
           </CardTitle>
           <CardDescription className="text-neutral-400 font-semibold">
             AI-powered disaster routing & emergency dome placement
