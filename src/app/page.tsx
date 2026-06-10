@@ -16,7 +16,14 @@ import {
 export default function Home() {
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
-    setMounted(true);
+    const supabase = createClient();
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) {
+        window.location.href = "/auth/login";
+        return;
+      }
+      setMounted(true);
+    });
   }, []);
   const [hazardCenter, setHazardCenter] = useState<[number, number] | null>(null);
   const [hazardRadius, setHazardRadius] = useState<number>(1000); // meters
