@@ -7,7 +7,8 @@ A real-time disaster intelligence platform built with Next.js 16 + MapLibre GL. 
 | Module | Description |
 |---|---|
 | **Aegis Route** | Real-time evacuation routing around active hazard zones with AI shelter recommendations |
-| **Aegis Prevent** | Climate-informed structural auditing using Open-Meteo weather archive + OpenAI analysis |
+| **Aegis Prevent** | Multi-hazard prediction using real meteorological formulas (72h forecast) and OSM+elevation+weather polygon zones, with a "Route to Safety" handoff into Aegis Route |
+| **Mobile Alert Delivery** | Supabase/PostGIS backend matching published hazard alerts against a device's current location and saved commute points — see [Mobile Alert Delivery](#mobile-alert-delivery-supabase-backed) and [Agent instructions](#agent-instructions-wiring-alert-delivery-into-the-mobile-app) below |
 
 ---
 
@@ -355,6 +356,211 @@ The main mobile polling endpoint. Returns every active alert matching the device
   "checkedPoints": 3
 }
 ```
+
+---
+
+## Agent instructions: wiring alert delivery into the mobile app
+
+This section is written to be handed directly to a coding agent building or maintaining the Expo mobile app. It assumes the backend above is already deployed and `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` are configured server-side — the mobile app never talks to Supabase directly, it only calls the Next.js API routes.
+
+**Goal:** the app registers itself as a device, keeps its location (and the user's saved commute points) up to date, and polls `/api/alerts/feed` to know what to show/notify the user about.
+
+### Step 1 — Generate and persist a device ID
+
+On first launch, generate a UUID and store it in `SecureStore` (not `AsyncStorage` — it should survive reinstalls where possible and not be trivially readable). This ID is the device's identity for every call below; there is no login.
+
+```ts
+// lib/deviceId.ts
+import * as SecureStore from "expo-secure-store";
+import { randomUUID } from "expo-crypto";
+
+const KEY = "envis_device_id";
+
+export async function getDeviceId(): Promise<string> {
+  let id = await SecureStore.getItemAsync(KEY);
+  if (!id) {
+    id = randomUUID();
+    await SecureStore.setItemAsync(KEY, id);
+  }
+  return id;
+}
+```
+
+### Step 2 — Register the device + push token on launch
+
+Request notification permission, get the Expo push token, and call `/api/devices/register`. Re-run this whenever the token changes (Expo can rotate it) — `addPushTokenListener` covers that.
+
+```ts
+// lib/registerDevice.ts
+import * as Notifications from "expo-notifications";
+import Constants from "expo-constants";
+import { getDeviceId } from "./deviceId";
+import { API_BASE } from "./api";
+
+export async function registerDevice() {
+  const deviceId = await getDeviceId();
+
+  const { status } = await Notifications.requestPermissionsAsync();
+  let pushToken: string | null = null;
+  if (status === "granted") {
+    const tokenData = await Notifications.getExpoPushTokenAsync({
+      projectId: Constants.expoConfig?.extra?.eas?.projectId,
+    });
+    pushToken = tokenData.data;
+  }
+
+  await fetch(`${API_BASE}/api/devices/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      deviceId,
+      pushToken,
+      pushProvider: "expo",
+      platform: Constants.platform?.ios ? "ios" : "android",
+    }),
+  });
+
+  return deviceId;
+}
+
+// Call once at app startup, and again on token rotation:
+Notifications.addPushTokenListener(() => registerDevice());
+```
+
+### Step 3 — Push location updates on an interval
+
+Foreground: update on a timer while the app is open. Background: register a `expo-location` background task (`TaskManager`) with `significantChanges` accuracy so it doesn't drain the battery — this is the location `/api/alerts/feed` matches against, not a live track, so infrequent updates (every 5-15 min, or on significant movement) are enough.
+
+```ts
+// lib/locationSync.ts
+import * as Location from "expo-location";
+import { getDeviceId } from "./deviceId";
+import { API_BASE } from "./api";
+
+export async function syncLocation() {
+  const { status } = await Location.requestForegroundPermissionsAsync();
+  if (status !== "granted") return;
+
+  const deviceId = await getDeviceId();
+  const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+
+  await fetch(`${API_BASE}/api/devices/location`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      deviceId,
+      lat: loc.coords.latitude,
+      lng: loc.coords.longitude,
+      accuracyM: loc.coords.accuracy ?? undefined,
+    }),
+  });
+}
+
+// In your root layout / app entry:
+// useEffect(() => { syncLocation(); const t = setInterval(syncLocation, 5 * 60 * 1000); return () => clearInterval(t); }, []);
+```
+
+For true background delivery (app closed), wire this into a `TaskManager.defineTask` + `Location.startLocationUpdatesAsync` background task per the [expo-location background docs](https://docs.expo.dev/versions/latest/sdk/location/#background-location-methods) — the fetch body is identical, only the trigger changes.
+
+### Step 4 — Build the commute points settings screen
+
+A simple screen where the user sets "Home", "Work", and optionally more waypoints. Send the full list on every save — the endpoint replaces the whole set for a device, there's no partial update.
+
+```ts
+// lib/commutePoints.ts
+import { getDeviceId } from "./deviceId";
+import { API_BASE } from "./api";
+
+export async function saveCommutePoints(
+  points: { label: string; lat: number; lng: number }[]
+) {
+  const deviceId = await getDeviceId();
+  await fetch(`${API_BASE}/api/devices/commute-points`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ deviceId, points }),
+  });
+}
+
+export async function loadCommutePoints() {
+  const deviceId = await getDeviceId();
+  const res = await fetch(`${API_BASE}/api/devices/commute-points?deviceId=${deviceId}`);
+  const data = await res.json();
+  return data.points; // [{ id, label, lat, lng, sortOrder }]
+}
+```
+
+### Step 5 — Poll the alert feed and surface local notifications
+
+This is the payoff: call `/api/alerts/feed` on the same interval as location sync (right after `syncLocation()` resolves, so the feed reflects the freshest position). Diff against alert IDs already shown locally (store them in `AsyncStorage`) so a repeat poll of a still-active alert doesn't re-notify.
+
+```ts
+// lib/alertFeed.ts
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Notifications from "expo-notifications";
+import { getDeviceId } from "./deviceId";
+import { API_BASE } from "./api";
+
+const SEEN_KEY = "envis_seen_alert_ids";
+
+export async function pollAlertFeed() {
+  const deviceId = await getDeviceId();
+  const res = await fetch(`${API_BASE}/api/alerts/feed?deviceId=${deviceId}`);
+  if (!res.ok) return [];
+  const { alerts } = await res.json();
+
+  const seenRaw = await AsyncStorage.getItem(SEEN_KEY);
+  const seen: string[] = seenRaw ? JSON.parse(seenRaw) : [];
+  const seenSet = new Set(seen);
+
+  for (const alert of alerts) {
+    if (seenSet.has(alert.id)) continue;
+    seenSet.add(alert.id);
+
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: alert.title,
+        body:
+          alert.matchedVia === "commute_point"
+            ? `Near your ${alert.matchedPointLabel}: ${alert.message}`
+            : alert.message,
+        data: { alertId: alert.id, hazardType: alert.hazardType },
+      },
+      trigger: null, // fire immediately
+    });
+  }
+
+  await AsyncStorage.setItem(SEEN_KEY, JSON.stringify(Array.from(seenSet)));
+  return alerts; // also render these in-app, e.g. a map overlay or alert list screen
+}
+```
+
+### Step 6 — Wire the polling loop
+
+```ts
+// App.tsx (or root layout)
+useEffect(() => {
+  registerDevice();
+  const tick = async () => {
+    await syncLocation();
+    await pollAlertFeed();
+  };
+  tick();
+  const interval = setInterval(tick, 5 * 60 * 1000); // every 5 min while foregrounded
+  return () => clearInterval(interval);
+}, []);
+```
+
+### Checklist for the agent
+
+- [ ] Device ID generated once, stored in `SecureStore`, reused for every call
+- [ ] `expo-notifications` permission requested and push token registered via `/api/devices/register`, re-registered on token rotation
+- [ ] Location synced via `/api/devices/location` on an interval (foreground timer at minimum; background task if the app needs closed-app delivery)
+- [ ] Commute points settings screen reads/writes `/api/devices/commute-points`
+- [ ] Alert feed polled via `/api/alerts/feed`, deduped against a locally stored seen-ID set before firing a notification
+- [ ] `matchedVia` / `matchedPointLabel` used to phrase the notification ("near your work" vs "at your current location")
+- [ ] `EXPO_PUBLIC_API_URL` (or equivalent) points at the deployed Next.js backend, not `localhost`, in any non-dev build
+- [ ] Verify end-to-end once by calling `/api/alerts/publish` manually (see Mobile Alert Delivery section above) for a coordinate near the test device's location, then confirming the feed picks it up
 
 ---
 
