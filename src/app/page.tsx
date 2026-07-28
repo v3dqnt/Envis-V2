@@ -26,6 +26,18 @@ export default function Home() {
 
   // Top Center Mode State
   const [mode, setMode] = useState<"routing" | "prevention">("routing");
+  // When set, RoutingSidebar auto-picks the nearest shelter and generates the
+  // evacuation route as soon as it mounts — set by "Route to Safety" in Aegis Prevent.
+  const [pendingAutoRoute, setPendingAutoRoute] = useState<boolean>(false);
+
+  const handleSendToEvacuation = (hazardType: string, center: [number, number], radiusMeters: number) => {
+    setIncidentType(hazardType);
+    setHazardCenter(center);
+    setHazardRadius(Math.round(radiusMeters));
+    setMapFlyToCoords(center);
+    setPendingAutoRoute(true);
+    setMode("routing");
+  };
   // Mitigation active defenses state
   const [activeDefenses, setActiveDefenses] = useState<string[]>([]);
 
@@ -43,11 +55,20 @@ export default function Home() {
   const [liveEarthquakes, setLiveEarthquakes] = useState<any[]>([]);
   const [liveFeedLoading, setLiveFeedLoading] = useState<boolean>(false);
 
-  // Vulnerability zones state (for map highlighting)
+  // Vulnerability zones state (for map highlighting) — aggregated across all
+  // analyzed + toggled-visible hazards in Aegis Prevent's multi-hazard view
   const [vulnerabilityZones, setVulnerabilityZones] = useState<any>(null);
-  
+  const [hazardPolygons, setHazardPolygons] = useState<any>(null);
+  const [hazardOrigins, setHazardOrigins] = useState<any>(null);
+  const [hazardPaths, setHazardPaths] = useState<any>(null);
+
   // Lifted disaster type state to keep all sidebars and right panel in sync
   const [incidentType, setIncidentType] = useState<string>("Wildfire");
+
+  // Temperature Heatmap state
+  const [showTemperatureHeatmap, setShowTemperatureHeatmap] = useState<boolean>(false);
+  const [temperatureGridData, setTemperatureGridData] = useState<any>(null);
+  const [temperatureHeatmapLoading, setTemperatureHeatmapLoading] = useState<boolean>(false);
 
   // Fetch active real-world disasters on mount
   useEffect(() => {
@@ -241,6 +262,38 @@ export default function Home() {
     fetchCityAndDensity();
   }, [hazardCenter]);
 
+  // Fetch temperature grid data when heatmap is active and hazardCenter changes
+  useEffect(() => {
+    if (!showTemperatureHeatmap) {
+      setTemperatureGridData(null);
+      return;
+    }
+    if (!hazardCenter) return;
+
+    setTemperatureHeatmapLoading(true);
+    const timer = setTimeout(async () => {
+      const [lng, lat] = hazardCenter;
+      try {
+        // 11x11 over 0.6deg (~6km spacing) — dense enough that neighbouring points blend
+        // into a continuous thermal field at city zoom instead of isolated blobs.
+        const res = await fetch(`/api/temperature-grid?lat=${lat}&lng=${lng}&grid=11&span=0.6`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.grid && data.grid.features) {
+            console.log(`[Heatmap] Loaded ${data.grid.features.length} temperature points — range ${data.meta.minTemp.toFixed(1)}°C to ${data.meta.maxTemp.toFixed(1)}°C`);
+            setTemperatureGridData(data.grid);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load temperature grid:", err);
+      } finally {
+        setTemperatureHeatmapLoading(false);
+      }
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [showTemperatureHeatmap, hazardCenter]);
+
   if (!mounted) {
     return (
       <main className="h-screen w-full bg-neutral-900 flex items-center justify-center">
@@ -298,6 +351,11 @@ export default function Home() {
         onSelectDestination={(coords: [number, number]) => setEndCoords(coords)}
         activeDefenses={activeDefenses}
         vulnerabilityZones={vulnerabilityZones}
+        hazardPolygons={hazardPolygons}
+        hazardOrigins={hazardOrigins}
+        hazardPaths={hazardPaths}
+        temperatureGridData={showTemperatureHeatmap ? temperatureGridData : null}
+        showTemperatureHeatmap={showTemperatureHeatmap}
       />
 
       {mode === "routing" ? (
@@ -332,6 +390,8 @@ export default function Home() {
           gdacsLoading={gdacsLoading}
           incidentType={incidentType}
           setIncidentType={setIncidentType}
+          pendingAutoRoute={pendingAutoRoute}
+          clearPendingAutoRoute={() => setPendingAutoRoute(false)}
         />
       ) : (
         <PreventionSidebar
@@ -348,6 +408,13 @@ export default function Home() {
           incidentType={incidentType}
           setIncidentType={setIncidentType}
           setVulnerabilityZones={setVulnerabilityZones}
+          setHazardPolygons={setHazardPolygons}
+          setHazardOrigins={setHazardOrigins}
+          setHazardPaths={setHazardPaths}
+          showTemperatureHeatmap={showTemperatureHeatmap}
+          setShowTemperatureHeatmap={setShowTemperatureHeatmap}
+          temperatureHeatmapLoading={temperatureHeatmapLoading}
+          onSendToEvacuation={handleSendToEvacuation}
         />
       )}
 

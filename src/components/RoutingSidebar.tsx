@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -29,7 +29,14 @@ import {
   Mountain,
   Radio,
   Send,
-  Bell
+  Bell,
+  Tornado,
+  Sun,
+  CloudLightning,
+  ThermometerSnowflake,
+  MountainSnow,
+  Thermometer,
+  Download
 } from "lucide-react";
 import { ReportIncidentModal } from "@/components/ReportIncidentModal";
 import {
@@ -72,6 +79,8 @@ interface RoutingSidebarProps {
   gdacsLoading: boolean;
   incidentType: string;
   setIncidentType: (type: string) => void;
+  pendingAutoRoute?: boolean;
+  clearPendingAutoRoute?: () => void;
 }
 
 // Haversine distance helper (in kilometers)
@@ -392,6 +401,8 @@ export default function RoutingSidebar({
   gdacsLoading,
   incidentType,
   setIncidentType,
+  pendingAutoRoute,
+  clearPendingAutoRoute,
 }: RoutingSidebarProps) {
   const [startPoint, setStartPoint] = useState("");
   const [endPoint, setEndPoint] = useState("");
@@ -568,57 +579,16 @@ export default function RoutingSidebar({
     }
   };
 
-  // Generate Evacuation Routes and call OpenAI advice assistant
-  const handleRoute = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Core route-generation logic, shared between the manual form submit and the
+  // auto-triggered "Route to Safety" quick action coming from Aegis Prevent.
+  const runRoute = async (start: [number, number], end: [number, number]) => {
     setErrorMessage("");
     setRouteGeoJSON(null);
     setBypassRouteGeoJSON(null);
     setAiRecommendation("");
-    
-    if (!startPoint.trim() || !endPoint.trim()) {
-      setErrorMessage("Please supply starting point and destination.");
-      return;
-    }
-
     setRoutingLoading(true);
 
     try {
-      // 1. Geocode locations
-      let start: [number, number] | null = null;
-      if (hazardCenter && (startPoint.includes("Epicentre") || !startPoint.trim())) {
-        start = hazardCenter;
-      } else {
-        start = await geocodeAddress(startPoint);
-      }
-      
-      let end: [number, number] | null = null;
-      
-      // Try to find a matching shelter in the dynamic evacuation shelters to bypass geocoding
-      let matchingShelter = null;
-      if (evacuationPoints && evacuationPoints.features) {
-        matchingShelter = evacuationPoints.features.find((feat: any) => 
-          feat.properties.name.toLowerCase().trim() === endPoint.toLowerCase().trim()
-        );
-      }
-
-      if (matchingShelter) {
-        end = matchingShelter.geometry.coordinates;
-      } else if (endCoords && (
-        endPoint.includes("Evacuation Center") || 
-        endPoint.includes("Safe Zone")
-      )) {
-        end = endCoords;
-      } else {
-        end = await geocodeAddress(endPoint);
-      }
-
-      if (!start || !end) {
-        setErrorMessage("Unable to resolve starting point or destination coordinates.");
-        setRoutingLoading(false);
-        return;
-      }
-
       setStartCoords(start);
       setEndCoords(end);
 
@@ -722,6 +692,152 @@ export default function RoutingSidebar({
     }
   };
 
+  // Form-triggered entry point: resolve text inputs to coordinates, then hand off to runRoute.
+  const handleRoute = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!startPoint.trim() || !endPoint.trim()) {
+      setErrorMessage("Please supply starting point and destination.");
+      return;
+    }
+
+    let start: [number, number] | null = null;
+    if (hazardCenter && (startPoint.includes("Epicentre") || !startPoint.trim())) {
+      start = hazardCenter;
+    } else {
+      start = await geocodeAddress(startPoint);
+    }
+
+    let end: [number, number] | null = null;
+    let matchingShelter = null;
+    if (evacuationPoints && evacuationPoints.features) {
+      matchingShelter = evacuationPoints.features.find((feat: any) =>
+        feat.properties.name.toLowerCase().trim() === endPoint.toLowerCase().trim()
+      );
+    }
+    if (matchingShelter) {
+      end = matchingShelter.geometry.coordinates;
+    } else if (endCoords && (endPoint.includes("Evacuation Center") || endPoint.includes("Safe Zone"))) {
+      end = endCoords;
+    } else {
+      end = await geocodeAddress(endPoint);
+    }
+
+    if (!start || !end) {
+      setErrorMessage("Unable to resolve starting point or destination coordinates.");
+      return;
+    }
+
+    await runRoute(start, end);
+  };
+
+  // Auto-triggered by "Route to Safety" in Aegis Prevent: hazardCenter/incidentType/radius
+  // have already been carried over as shared state, so once the AI-suggested shelters load
+  // we pick the nearest one and run routing immediately without any user input.
+  const autoRouteFiredRef = useRef(false);
+  React.useEffect(() => {
+    if (!pendingAutoRoute || !hazardCenter) return;
+    if (!evacuationPoints || !evacuationPoints.features || evacuationPoints.features.length === 0) return;
+    if (autoRouteFiredRef.current) return;
+    autoRouteFiredRef.current = true;
+
+    let nearest = evacuationPoints.features[0];
+    let nearestDist = getDistance(hazardCenter, nearest.geometry.coordinates);
+    for (const feat of evacuationPoints.features) {
+      const d = getDistance(hazardCenter, feat.geometry.coordinates);
+      if (d < nearestDist) {
+        nearest = feat;
+        nearestDist = d;
+      }
+    }
+    const end: [number, number] = nearest.geometry.coordinates;
+    setEndCoords(end);
+    runRoute(hazardCenter, end).finally(() => {
+      clearPendingAutoRoute?.();
+      autoRouteFiredRef.current = false;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingAutoRoute, evacuationPoints, hazardCenter]);
+
+  // Downloadable .md export of the impacted area dome and both route geometries —
+  // the coordinate-level record a responder or a second app can act on directly.
+  const handleExportRoute = () => {
+    const lines: string[] = [];
+    const now = new Date().toISOString();
+    lines.push(`# Aegis Route — Evacuation Export`);
+    lines.push("");
+    lines.push(`**Incident type:** ${incidentType}`);
+    lines.push(`**Generated:** ${now}`);
+    lines.push("");
+
+    if (hazardCenter) {
+      lines.push(`## Impacted area`);
+      lines.push("");
+      lines.push(`**Epicentre (lng, lat):** \`${hazardCenter[0].toFixed(6)}, ${hazardCenter[1].toFixed(6)}\``);
+      lines.push(`**Dome radius:** ${hazardRadius} m (${(hazardRadius / 1000).toFixed(2)} km)`);
+      lines.push(`**Dome area:** ${(Math.PI * Math.pow(hazardRadius / 1000, 2)).toFixed(2)} km²`);
+      lines.push("");
+    }
+
+    if (startCoords && endCoords) {
+      lines.push(`## Route endpoints`);
+      lines.push("");
+      lines.push(`**Start (lng, lat):** \`${startCoords[0].toFixed(6)}, ${startCoords[1].toFixed(6)}\` — ${startPoint}`);
+      lines.push(`**Destination (lng, lat):** \`${endCoords[0].toFixed(6)}, ${endCoords[1].toFixed(6)}\` — ${endPoint}`);
+      lines.push("");
+    }
+
+    const exportRouteCoords = (label: string, geo: any) => {
+      if (!geo) return;
+      const coords: [number, number][] = [];
+      if (geo.type === "FeatureCollection") {
+        for (const f of geo.features || []) {
+          const seg = f?.geometry?.coordinates;
+          if (Array.isArray(seg)) coords.push(...seg);
+        }
+      }
+      if (coords.length === 0) return;
+      lines.push(`## ${label}`);
+      lines.push("");
+      lines.push(`Distance: ${geo.properties?.distance?.toFixed?.(2) ?? "—"} km · Duration: ~${Math.round(geo.properties?.duration ?? 0)} min`);
+      lines.push("");
+      lines.push("| # | Longitude | Latitude |");
+      lines.push("|---|---|---|");
+      coords.forEach((c, i) => {
+        if (i % Math.max(1, Math.floor(coords.length / 200)) !== 0 && i !== coords.length - 1) return;
+        lines.push(`| ${i + 1} | ${c[0].toFixed(6)} | ${c[1].toFixed(6)} |`);
+      });
+      lines.push("");
+    };
+
+    exportRouteCoords("Primary route coordinates", routeGeoJSON);
+    exportRouteCoords("Detour / bypass route coordinates", bypassRouteGeoJSON);
+
+    if (evacuationPoints?.features?.length) {
+      lines.push(`## Evacuation shelters`);
+      lines.push("");
+      lines.push("| Name | Longitude | Latitude | Direction |");
+      lines.push("|---|---|---|---|");
+      for (const s of evacuationPoints.features) {
+        const c = s.geometry.coordinates;
+        lines.push(`| ${s.properties.name} | ${c[0].toFixed(6)} | ${c[1].toFixed(6)} | ${s.properties.direction || "—"} |`);
+      }
+      lines.push("");
+    }
+
+    const md = lines.join("\n");
+    const slug = incidentType.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    const date = new Date().toISOString().split("T")[0];
+    const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `aegis-evacuation-${slug}-${date}.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   const getIncidentIcon = () => {
     switch (incidentType) {
       case "Wildfire":
@@ -742,6 +858,18 @@ export default function RoutingSidebar({
         return <Snowflake className="w-5 h-5 text-sky-400 animate-pulse" />;
       case "Volcanic Eruption":
         return <Mountain className="w-5 h-5 text-rose-600 animate-pulse" />;
+      case "Tropical Cyclone":
+        return <Tornado className="w-5 h-5 text-cyan-600 animate-pulse" />;
+      case "Heatwave":
+        return <Thermometer className="w-5 h-5 text-red-600 animate-pulse" />;
+      case "Drought":
+        return <Sun className="w-5 h-5 text-amber-500 animate-pulse" />;
+      case "Extreme Cold":
+        return <ThermometerSnowflake className="w-5 h-5 text-blue-400 animate-pulse" />;
+      case "Thunderstorm":
+        return <CloudLightning className="w-5 h-5 text-indigo-500 animate-pulse" />;
+      case "Landslide":
+        return <MountainSnow className="w-5 h-5 text-stone-600 animate-pulse" />;
       default:
         return <AlertTriangle className="w-5 h-5 text-amber-500 animate-pulse" />;
     }
@@ -782,7 +910,9 @@ export default function RoutingSidebar({
               <div className="space-y-3 p-3.5 bg-neutral-50 rounded-xl border border-neutral-100">
                 <Label className="font-bold text-neutral-700">Disaster Classification</Label>
                 <div className="grid grid-cols-3 gap-2">
-                  {["Wildfire", "Flooding", "Toxic Plume", "Earthquake", "Tornado", "Radiation Leak", "Chemical Spill", "Blizzard", "Volcanic Eruption"].map((type) => (
+                  {/* Aegis Route covers every incident type, including accidents that
+                      cannot be forecast — once one occurs you still need evacuation routing. */}
+                  {["Wildfire", "Flooding", "Flash Flood", "Toxic Plume", "Earthquake", "Tornado", "Radiation Leak", "Chemical Spill", "Blizzard", "Ice Storm", "Volcanic Eruption", "Tropical Cyclone", "Heatwave", "Drought", "Extreme Cold", "Thunderstorm", "Landslide"].map((type) => (
                     <button
                       key={type}
                       type="button"
@@ -795,6 +925,8 @@ export default function RoutingSidebar({
                     >
                       {type === "Wildfire" && <Flame className="w-4 h-4 text-orange-500" />}
                       {type === "Flooding" && <Waves className="w-4 h-4 text-blue-500" />}
+                      {type === "Flash Flood" && <Waves className="w-4 h-4 text-cyan-500" />}
+                      {type === "Ice Storm" && <Snowflake className="w-4 h-4 text-cyan-300" />}
                       {type === "Toxic Plume" && <Skull className="w-4 h-4 text-green-500" />}
                       {type === "Earthquake" && <Activity className="w-4 h-4 text-amber-500" />}
                       {type === "Tornado" && <Wind className="w-4 h-4 text-teal-500" />}
@@ -802,6 +934,12 @@ export default function RoutingSidebar({
                       {type === "Chemical Spill" && <Biohazard className="w-4 h-4 text-yellow-500" />}
                       {type === "Blizzard" && <Snowflake className="w-4 h-4 text-sky-400" />}
                       {type === "Volcanic Eruption" && <Mountain className="w-4 h-4 text-rose-600" />}
+                      {type === "Tropical Cyclone" && <Tornado className="w-4 h-4 text-cyan-600" />}
+                      {type === "Heatwave" && <Thermometer className="w-4 h-4 text-red-600" />}
+                      {type === "Drought" && <Sun className="w-4 h-4 text-amber-500" />}
+                      {type === "Extreme Cold" && <ThermometerSnowflake className="w-4 h-4 text-blue-400" />}
+                      {type === "Thunderstorm" && <CloudLightning className="w-4 h-4 text-indigo-500" />}
+                      {type === "Landslide" && <MountainSnow className="w-4 h-4 text-stone-600" />}
                       {type}
                     </button>
                   ))}
@@ -1225,6 +1363,15 @@ export default function RoutingSidebar({
                   Real-time Traffic provided by TomTom API
                 </div>
               )}
+
+              <Button
+                type="button"
+                onClick={handleExportRoute}
+                className="w-full py-5 bg-neutral-800 hover:bg-neutral-900 text-white font-bold rounded-xl flex items-center justify-center gap-2"
+              >
+                <Download className="w-4 h-4" />
+                Export Impacted Area + Route Coordinates (.md)
+              </Button>
             </div>
           )}
         </CardContent>

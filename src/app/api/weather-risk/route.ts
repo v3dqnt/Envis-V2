@@ -13,6 +13,7 @@ export interface WeatherRiskPayload {
     maxDailyPrecipMm: number;
     maxTempC: number;
     minTempC: number;
+    avgTempC: number;
     maxWindKmh: number;
     maxDailySnowCm: number;
     annualAvgPrecipMm: number;
@@ -30,6 +31,8 @@ export interface WeatherRiskPayload {
     days: number;
   };
   risks: DisasterRisk[];
+  currentWindDirectionDeg: number | null;
+  currentWindSpeedKmh: number | null;
 }
 
 function safeMax(arr: (number | null)[]): number {
@@ -101,6 +104,28 @@ function deriveRisks(
     });
   }
 
+  // --- Heatwave ---
+  const tempAnomaly = recent.avgTempC - hist.avgTempC;
+  const heatwaveConfidence =
+    tempAnomaly >= 5
+      ? "high"
+      : tempAnomaly >= 3 || hist.maxTempC > 40
+      ? "medium"
+      : hist.maxTempC > 36
+      ? "low"
+      : null;
+  if (heatwaveConfidence) {
+    risks.push({
+      type: "Heatwave",
+      confidence: heatwaveConfidence,
+      historicalBasis: `Historical peak temperature of ${hist.maxTempC.toFixed(1)}°C against a typical daytime high of ${hist.avgTempC.toFixed(1)}°C`,
+      recentSignal:
+        tempAnomaly >= 3
+          ? `Recent ${recent.days}-day average high (${recent.avgTempC.toFixed(1)}°C) is ${tempAnomaly.toFixed(1)}°C above the historical norm`
+          : null,
+    });
+  }
+
   // --- Blizzard / Extreme Snow ---
   const blizzardConfidence =
     hist.maxDailySnowCm > 30
@@ -134,6 +159,29 @@ function deriveRisks(
       historicalBasis: `Historical maximum sustained wind speed of ${hist.maxWindKmh.toFixed(0)} km/h`,
       recentSignal:
         recent.maxWindKmh > 70
+          ? `Recent wind gusts up to ${recent.maxWindKmh.toFixed(0)} km/h recorded in the last ${recent.days} days`
+          : null,
+    });
+  }
+
+  // --- Thunderstorm / Derecho ---
+  const stormyWind = hist.maxWindKmh >= 60;
+  const stormyRain = hist.maxDailyPrecipMm >= 30;
+  const thunderstormConfidence =
+    stormyWind && stormyRain
+      ? hist.maxWindKmh >= 90
+        ? "high"
+        : "medium"
+      : (stormyWind || stormyRain) && recent.maxWindKmh >= 50
+      ? "low"
+      : null;
+  if (thunderstormConfidence) {
+    risks.push({
+      type: "Thunderstorm",
+      confidence: thunderstormConfidence,
+      historicalBasis: `Historical peak wind gusts of ${hist.maxWindKmh.toFixed(0)} km/h alongside peak daily rainfall of ${hist.maxDailyPrecipMm.toFixed(0)}mm — consistent with severe convective storm activity`,
+      recentSignal:
+        recent.maxWindKmh >= 50
           ? `Recent wind gusts up to ${recent.maxWindKmh.toFixed(0)} km/h recorded in the last ${recent.days} days`
           : null,
     });
@@ -211,7 +259,7 @@ export async function GET(req: Request) {
       { next: { revalidate: 86400 } }
     ),
     fetch(
-      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&past_days=30&daily=${dailyVars}&timezone=auto&wind_speed_unit=kmh`,
+      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&past_days=30&daily=${dailyVars}&current=wind_direction_10m,wind_speed_10m&timezone=auto&wind_speed_unit=kmh`,
       { next: { revalidate: 3600 } }
     ),
   ]);
@@ -233,6 +281,7 @@ export async function GET(req: Request) {
     maxDailyPrecipMm: safeMax(hd.precipitation_sum || []),
     maxTempC: safeMax(hd.temperature_2m_max || []),
     minTempC: safeMin(hd.temperature_2m_min || []),
+    avgTempC: safeMean(hd.temperature_2m_max || []),
     maxWindKmh: safeMax(hd.wind_speed_10m_max || []),
     maxDailySnowCm: safeMax(hd.snowfall_sum || []),
     annualAvgPrecipMm: annualAvgPrecip,
@@ -254,6 +303,14 @@ export async function GET(req: Request) {
 
   const risks = deriveRisks(historical, recent);
 
-  const payload: WeatherRiskPayload = { city, historical, recent, risks };
+  const currentWind = recentData.current || {};
+  const payload: WeatherRiskPayload = {
+    city,
+    historical,
+    recent,
+    risks,
+    currentWindDirectionDeg: typeof currentWind.wind_direction_10m === "number" ? currentWind.wind_direction_10m : null,
+    currentWindSpeedKmh: typeof currentWind.wind_speed_10m === "number" ? currentWind.wind_speed_10m : null,
+  };
   return NextResponse.json(payload);
 }

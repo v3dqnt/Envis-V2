@@ -27,7 +27,7 @@ export async function GET() {
 
       // Map GDACS codes to our internal disaster classifications
       let mappedType = "Other";
-      if (props.eventtype === "TC") mappedType = "Tornado"; // map Tropical Cyclone to Tornado/Cyclone
+      if (props.eventtype === "TC") mappedType = "Tropical Cyclone";
       else if (props.eventtype === "EQ") mappedType = "Earthquake";
       else if (props.eventtype === "FL") mappedType = "Flooding";
       else if (props.eventtype === "WF") mappedType = "Wildfire";

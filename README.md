@@ -29,7 +29,24 @@ NEXT_PUBLIC_TOMTOM_API_KEY=         # TomTom — routing engine
 TOMORROW_IO_API_KEY=                # Optional: Tomorrow.io tropical cyclone feed
 XWEATHER_CLIENT_ID=                 # Optional: XWeather cyclone feed
 XWEATHER_CLIENT_SECRET=             # Optional: XWeather cyclone feed
+NASA_FIRMS_MAP_KEY=                 # Optional: satellite fire hotspot detection (free signup: https://firms.modaps.eosdis.nasa.gov/api/map_key/)
+OPENAQ_API_KEY=                     # Optional: ground air-quality sensor network (free signup: https://explore.openaq.org/register)
+OPENTOPOGRAPHY_API_KEY=             # Optional: Copernicus DEM GLO-30 terrain (free signup: https://portal.opentopography.org/newUser)
+COPERNICUS_CLIENT_ID=               # Optional: Sentinel-2 NDVI/NDMI vegetation dryness (free: https://dataspace.copernicus.eu/)
+COPERNICUS_CLIENT_SECRET=           # Optional: paired with COPERNICUS_CLIENT_ID
+SUPABASE_URL=                       # Optional: mobile alert delivery backend (free tier: https://supabase.com)
+SUPABASE_SERVICE_ROLE_KEY=          # Optional: paired with SUPABASE_URL — see supabase/migrations/0001_init.sql
 ```
+
+Keyless data sources used with no configuration required: Open-Meteo (forecast, archive, elevation),
+OpenStreetMap via Overpass, ISRIC SoilGrids, GDACS and USGS.
+
+### Setting up Supabase (mobile alert delivery)
+
+1. Create a free project at [supabase.com](https://supabase.com).
+2. In the SQL editor, run `supabase/migrations/0001_init.sql` — it enables PostGIS and creates the devices/locations/commute-points/alerts schema described below.
+3. Copy the project URL and the `service_role` key (Project Settings → API) into `.env.local`.
+4. Without these two variables, every `/api/devices/*` and `/api/alerts/*` route returns `503` with a setup note instead of failing — the rest of the app is unaffected.
 
 ---
 
@@ -237,6 +254,105 @@ Returns AI-suggested evacuation shelters safely outside the hazard radius.
       "reason": "Large-capacity public facility outside flood zone, equipped with generators"
     }
   ]
+}
+```
+
+---
+
+## Mobile Alert Delivery (Supabase-backed)
+
+These endpoints are the bridge to a mobile app: register a device, keep its location (and commute points) up to date, and poll for alerts matching either. Requires `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` — see setup steps above. All return `503` with a setup note if unconfigured.
+
+### `POST /api/devices/register`
+
+Register a device on first launch, or whenever its push token rotates.
+
+**Request body**
+```json
+{
+  "deviceId": "a1b2c3d4-...",
+  "pushToken": "ExponentPushToken[...]",
+  "pushProvider": "expo",
+  "platform": "ios"
+}
+```
+
+### `POST /api/devices/location`
+
+Upsert a device's current location. Call on a background interval or significant-location-change — only the latest position is kept.
+
+**Request body**
+```json
+{ "deviceId": "a1b2c3d4-...", "lat": 34.0537, "lng": -118.2428, "accuracyM": 15 }
+```
+
+### `GET /api/devices/commute-points?deviceId=...`  ·  `POST /api/devices/commute-points`
+
+Home, work, and any other named points a user wants covered even when they aren't physically there. `POST` replaces the full set for a device — send the whole list every time it's edited.
+
+**POST request body**
+```json
+{
+  "deviceId": "a1b2c3d4-...",
+  "points": [
+    { "label": "home", "lat": 34.05, "lng": -118.24 },
+    { "label": "work", "lat": 34.02, "lng": -118.30 }
+  ]
+}
+```
+
+### `POST /api/alerts/publish`
+
+Materializes a hazard prediction into the alerts table. This is what Aegis Prevent's "Publish Alert" button calls once a hazard has been analyzed — it can also be called from a scheduled job for automated publishing.
+
+**Request body**
+```json
+{
+  "hazardType": "Wildfire",
+  "severity": "high",
+  "source": "forecast",
+  "title": "Wildfire risk near Los Angeles",
+  "message": "Elevated fire danger — enforce burn precautions.",
+  "method": "Vapour pressure deficit + humidity + wind + Sentinel-2 NDMI fuel moisture",
+  "riskScore": 0.53,
+  "leadTimeHours": 44,
+  "lat": 34.0537,
+  "lng": -118.2428,
+  "radiusM": 8000,
+  "impactAreaRing": [[-118.25, 34.05], [-118.24, 34.05], [-118.24, 34.06], [-118.25, 34.05]],
+  "cityName": "Los Angeles",
+  "expiresInHours": 48
+}
+```
+
+### `GET /api/alerts/nearby?lat=&lng=&radiusKm=`
+
+Point-radius alert lookup, independent of any registered device — useful for a map view.
+
+### `GET /api/alerts/feed?deviceId=...`
+
+The main mobile polling endpoint. Returns every active alert matching the device's current location or any commute point, tagged with which one matched, the label (for commute points), and distance.
+
+**Response**
+```json
+{
+  "alerts": [
+    {
+      "id": "b7e1...",
+      "hazardType": "Wildfire",
+      "severity": "high",
+      "title": "Wildfire risk near Los Angeles",
+      "message": "Elevated fire danger — enforce burn precautions.",
+      "riskScore": 0.53,
+      "leadTimeHours": 44,
+      "matchedVia": "commute_point",
+      "matchedPointLabel": "work",
+      "distanceM": 3120,
+      "publishedAt": "2026-07-28T18:00:00Z",
+      "expiresAt": "2026-07-30T18:00:00Z"
+    }
+  ],
+  "checkedPoints": 3
 }
 ```
 

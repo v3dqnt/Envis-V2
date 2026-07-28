@@ -17,6 +17,11 @@ interface MapDashboardProps {
   onSelectDestination: (coords: [number, number]) => void;
   activeDefenses?: string[];
   vulnerabilityZones?: any;
+  hazardPolygons?: any;
+  hazardOrigins?: any;
+  hazardPaths?: any;
+  temperatureGridData?: any;
+  showTemperatureHeatmap?: boolean;
 }
 
 // Helper to generate circle coordinates for the GeoJSON polygon representing the dome
@@ -52,6 +57,11 @@ export default function MapDashboard({
   onSelectDestination,
   activeDefenses = [],
   vulnerabilityZones,
+  hazardPolygons,
+  hazardOrigins,
+  hazardPaths,
+  temperatureGridData,
+  showTemperatureHeatmap = false,
 }: MapDashboardProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
@@ -71,11 +81,14 @@ export default function MapDashboard({
     if (map.current) return;
     if (!mapContainer.current) return;
 
-    const mapTilerKey = process.env.NEXT_PUBLIC_MAPTILER_API_KEY || 'get_your_own_OpIi9ZULNHzrESv6T2vL';
+    const mapTilerKey = process.env.NEXT_PUBLIC_MAPTILER_API_KEY;
+    const mapStyle = mapTilerKey
+      ? `https://api.maptiler.com/maps/streets-v2/style.json?key=${mapTilerKey}`
+      : 'https://demotiles.maplibre.org/style.json';
 
     map.current = new maplibregl.Map({
       container: mapContainer.current,
-      style: `https://api.maptiler.com/maps/streets-v2/style.json?key=${mapTilerKey}`,
+      style: mapStyle,
       center: [-74.006, 40.7128], // starting position [lng, lat] (NYC)
       zoom: 13,
       pitch: 45,
@@ -374,6 +387,137 @@ export default function MapDashboard({
         }
       });
 
+      // 5a. Real hazard POLYGONS — actual OSM geometry (forest blocks, water bodies,
+      // river corridors) and elevation-derived terrain cells, not approximated circles.
+      m.addSource('hazard-polygons-source', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] }
+      });
+
+      const severityColorExpr: any = [
+        'match', ['get', 'severity'],
+        'high', '#dc2626',
+        'medium', '#ea580c',
+        'low', '#eab308',
+        '#6b7280'
+      ];
+
+      m.addLayer({
+        id: 'hazard-polygons-fill',
+        type: 'fill',
+        source: 'hazard-polygons-source',
+        paint: {
+          'fill-color': severityColorExpr,
+          'fill-opacity': [
+            'match', ['get', 'severity'],
+            'high', 0.42,
+            'medium', 0.3,
+            'low', 0.18,
+            0.2
+          ]
+        }
+      });
+
+      m.addLayer({
+        id: 'hazard-polygons-outline',
+        type: 'line',
+        source: 'hazard-polygons-source',
+        paint: {
+          'line-color': severityColorExpr,
+          'line-width': 1.5,
+          'line-opacity': 0.9
+        }
+      });
+
+      m.on('mousemove', 'hazard-polygons-fill', () => { m.getCanvas().style.cursor = 'pointer'; });
+      m.on('mouseleave', 'hazard-polygons-fill', () => { m.getCanvas().style.cursor = ''; });
+      m.on('click', 'hazard-polygons-fill', (e: any) => {
+        const f = e.features?.[0];
+        if (!f) return;
+        const p = f.properties || {};
+        new maplibregl.Popup({ closeButton: true, maxWidth: '280px' })
+          .setLngLat(e.lngLat)
+          .setHTML(
+            `<div style="font-family:system-ui;font-size:11px;line-height:1.45">
+               <div style="font-weight:800;margin-bottom:3px">${p.hazardType || 'Hazard'} · ${String(p.severity || '').toUpperCase()}</div>
+               ${p.name ? `<div style="font-weight:600;margin-bottom:2px">${p.name}</div>` : ''}
+               <div style="color:#444">${p.reason || ''}</div>
+             </div>`
+          )
+          .addTo(m);
+      });
+
+      // 5b. Hazard Origin Points & Spread Paths — multi-hazard toggle view (Aegis Prevent)
+      const hazardColorExpr: any = [
+        'match', ['get', 'hazardType'],
+        'Wildfire', '#f97316',
+        'Flooding', '#3b82f6',
+        'Toxic Plume', '#22c55e',
+        'Earthquake', '#f59e0b',
+        'Tornado', '#14b8a6',
+        'Radiation Leak', '#84cc16',
+        'Chemical Spill', '#eab308',
+        'Blizzard', '#38bdf8',
+        'Volcanic Eruption', '#e11d48',
+        'Tropical Cyclone', '#0891b2',
+        'Heatwave', '#dc2626',
+        'Drought', '#f59e0b',
+        'Extreme Cold', '#60a5fa',
+        'Thunderstorm', '#6366f1',
+        'Landslide', '#57534e',
+        '#6b7280'
+      ];
+
+      m.addSource('hazard-paths-source', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] }
+      });
+      m.addLayer({
+        id: 'hazard-paths',
+        type: 'line',
+        source: 'hazard-paths-source',
+        paint: {
+          'line-color': hazardColorExpr,
+          'line-width': 3,
+          'line-dasharray': [2, 1.5],
+          'line-opacity': 0.85
+        }
+      });
+
+      m.addSource('hazard-origins-source', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] }
+      });
+      m.addLayer({
+        id: 'hazard-origins',
+        type: 'circle',
+        source: 'hazard-origins-source',
+        paint: {
+          'circle-radius': 8,
+          'circle-color': hazardColorExpr,
+          'circle-opacity': 0.95,
+          'circle-stroke-color': '#ffffff',
+          'circle-stroke-width': 2
+        }
+      });
+      m.addLayer({
+        id: 'hazard-origins-label',
+        type: 'symbol',
+        source: 'hazard-origins-source',
+        layout: {
+          'text-field': ['get', 'hazardType'],
+          'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+          'text-size': 11,
+          'text-offset': [0, 1.4],
+          'text-anchor': 'top'
+        },
+        paint: {
+          'text-color': '#1f2937',
+          'text-halo-color': '#ffffff',
+          'text-halo-width': 1.5
+        }
+      });
+
       // Add hover popup for vulnerability zones
       m.on('mousemove', 'vulnerability-zones-high', () => { m.getCanvas().style.cursor = 'pointer'; });
       m.on('mousemove', 'vulnerability-zones-medium', () => { m.getCanvas().style.cursor = 'pointer'; });
@@ -382,7 +526,99 @@ export default function MapDashboard({
       m.on('mouseleave', 'vulnerability-zones-medium', () => { m.getCanvas().style.cursor = ''; });
       m.on('mouseleave', 'vulnerability-zones-low', () => { m.getCanvas().style.cursor = ''; });
 
-      // 6. Add 3D buildings layer if not present
+      // 6. Temperature Heatmap Source & Layers
+      m.addSource('temperature-heatmap-source', {
+        type: 'geojson',
+        data: {
+          type: 'FeatureCollection',
+          features: []
+        }
+      });
+
+      // Heatmap layer — smooth temperature interpolation from grid points
+      m.addLayer({
+        id: 'temperature-heatmap',
+        type: 'heatmap',
+        source: 'temperature-heatmap-source',
+        paint: {
+          // Weight is scaled to a realistic ambient range (5-42C), not the full 0-50C span,
+          // so normal hot-day readings actually reach high density instead of sitting mid-scale.
+          'heatmap-weight': [
+            'interpolate', ['linear'], ['get', 'temperature'],
+            5, 0,
+            42, 1
+          ],
+          'heatmap-intensity': 1.4,
+          'heatmap-radius': [
+            'interpolate', ['linear'], ['zoom'],
+            5, 35,
+            10, 55,
+            15, 90
+          ],
+          'heatmap-color': [
+            'interpolate', ['linear'], ['heatmap-density'],
+            0, 'rgba(33,102,172,0)',
+            0.1, 'rgb(103,169,207)',
+            0.25, 'rgb(209,229,240)',
+            0.4, 'rgb(253,219,199)',
+            0.55, 'rgb(239,138,98)',
+            0.7, 'rgb(178,24,43)',
+            0.85, 'rgb(128,0,38)',
+            1, 'rgb(80,0,20)'
+          ],
+          'heatmap-opacity': 0.55
+        }
+      });
+
+      // Grid point circles — user-visible reference dots
+      m.addLayer({
+        id: 'temperature-points',
+        type: 'circle',
+        source: 'temperature-heatmap-source',
+        paint: {
+          'circle-radius': 7,
+          'circle-color': [
+            'interpolate', ['linear'], ['get', 'temperature'],
+            5, '#2166ac',
+            15, '#4393c3',
+            22, '#92c5de',
+            26, '#f7f7f7',
+            30, '#f4a582',
+            34, '#d6604d',
+            38, '#b2182b',
+            42, '#67001f'
+          ],
+          'circle-opacity': 0.9,
+          'circle-stroke-color': '#ffffff',
+          'circle-stroke-width': 0.5
+        }
+      });
+
+      // Temperature labels at each grid point
+      m.addLayer({
+        id: 'temperature-labels',
+        type: 'symbol',
+        source: 'temperature-heatmap-source',
+        layout: {
+          'text-field': ['get', 'temperatureLabel'],
+          'text-font': ['Open Sans Semibold', 'Arial Unicode MS Bold'],
+          'text-size': ['interpolate', ['linear'], ['zoom'], 5, 0, 10, 0, 12, 11],
+          'text-offset': [0, -1.8]
+        },
+        paint: {
+          'text-color': '#ffffff',
+          'text-halo-color': '#000000',
+          'text-halo-width': 1.5,
+          'text-opacity': 0.85
+        }
+      });
+
+      // Start hidden by default
+      m.setLayoutProperty('temperature-heatmap', 'visibility', 'none');
+      m.setLayoutProperty('temperature-points', 'visibility', 'none');
+      m.setLayoutProperty('temperature-labels', 'visibility', 'none');
+
+      // 7. Add 3D buildings layer if not present
       if (!m.getLayer('3d-buildings')) {
          const layers = m.getStyle().layers;
          let labelLayerId;
@@ -408,31 +644,37 @@ export default function MapDashboard({
              }
          }
 
-         m.addLayer(
-             {
-                 'id': '3d-buildings',
-                 'source': vectorSource,
-                 'source-layer': 'building',
-                 'filter': ['==', 'extrude', 'true'],
-                 'type': 'fill-extrusion',
-                 'minzoom': 15,
-                 'paint': {
-                     'fill-extrusion-color': '#aaa',
-                     'fill-extrusion-height': [
-                         'interpolate', ['linear'], ['zoom'],
-                         15, 0,
-                         15.05, ['get', 'render_height']
-                     ],
-                     'fill-extrusion-base': [
-                         'interpolate', ['linear'], ['zoom'],
-                         15, 0,
-                         15.05, ['get', 'render_min_height']
-                     ],
-                     'fill-extrusion-opacity': 0.6
-                 }
-             },
-             labelLayerId
-         );
+         try {
+           m.addLayer(
+               {
+                   'id': '3d-buildings',
+                   'source': vectorSource,
+                   'source-layer': 'building',
+                   // MapTiler's building schema exposes render_height/hide_3d, not the
+                   // Mapbox-style 'extrude' boolean field this filter used to check.
+                   'filter': ['all', ['!=', ['get', 'hide_3d'], true], ['>', ['get', 'render_height'], 0]],
+                   'type': 'fill-extrusion',
+                   'minzoom': 15,
+                   'paint': {
+                       'fill-extrusion-color': '#aaa',
+                       'fill-extrusion-height': [
+                           'interpolate', ['linear'], ['zoom'],
+                           15, 0,
+                           15.05, ['get', 'render_height']
+                       ],
+                       'fill-extrusion-base': [
+                           'interpolate', ['linear'], ['zoom'],
+                           15, 0,
+                           15.05, ['get', 'render_min_height']
+                       ],
+                       'fill-extrusion-opacity': 0.6
+                   }
+               },
+               labelLayerId
+           );
+         } catch (err) {
+           console.warn('3D buildings layer unavailable for this style:', err);
+         }
       }
     });
 
@@ -680,6 +922,30 @@ export default function MapDashboard({
           if (m.getLayer('vulnerability-zones-low')) m.setLayoutProperty('vulnerability-zones-low', 'visibility', 'none');
         }
       }
+
+      // 5c. Update real hazard polygons
+      const polySource = m.getSource('hazard-polygons-source') as maplibregl.GeoJSONSource;
+      if (polySource) {
+        const hasPolys = hazardPolygons && hazardPolygons.features && hazardPolygons.features.length > 0;
+        polySource.setData(hasPolys ? hazardPolygons : { type: 'FeatureCollection', features: [] });
+        if (m.getLayer('hazard-polygons-fill')) m.setLayoutProperty('hazard-polygons-fill', 'visibility', hasPolys ? 'visible' : 'none');
+        if (m.getLayer('hazard-polygons-outline')) m.setLayoutProperty('hazard-polygons-outline', 'visibility', hasPolys ? 'visible' : 'none');
+      }
+
+      // 6. Update Hazard Origins & Paths (multi-hazard toggle view)
+      const originsSource = m.getSource('hazard-origins-source') as maplibregl.GeoJSONSource;
+      if (originsSource) {
+        const hasOrigins = hazardOrigins && hazardOrigins.features && hazardOrigins.features.length > 0;
+        originsSource.setData(hasOrigins ? hazardOrigins : { type: 'FeatureCollection', features: [] });
+        if (m.getLayer('hazard-origins')) m.setLayoutProperty('hazard-origins', 'visibility', hasOrigins ? 'visible' : 'none');
+        if (m.getLayer('hazard-origins-label')) m.setLayoutProperty('hazard-origins-label', 'visibility', hasOrigins ? 'visible' : 'none');
+      }
+      const pathsSource = m.getSource('hazard-paths-source') as maplibregl.GeoJSONSource;
+      if (pathsSource) {
+        const hasPaths = hazardPaths && hazardPaths.features && hazardPaths.features.length > 0;
+        pathsSource.setData(hasPaths ? hazardPaths : { type: 'FeatureCollection', features: [] });
+        if (m.getLayer('hazard-paths')) m.setLayoutProperty('hazard-paths', 'visibility', hasPaths ? 'visible' : 'none');
+      }
     };
 
     if (m.isStyleLoaded()) {
@@ -687,7 +953,37 @@ export default function MapDashboard({
     } else {
       m.once('idle', updateLayers);
     }
-  }, [hazardCenter, hazardRadius, routeGeoJSON, bypassRouteGeoJSON, evacuationPoints, activeDefenses, vulnerabilityZones]);
+  }, [hazardCenter, hazardRadius, routeGeoJSON, bypassRouteGeoJSON, evacuationPoints, activeDefenses, vulnerabilityZones, hazardPolygons, hazardOrigins, hazardPaths]);
+
+  // Temperature Heatmap update effect — separate from other layers for clarity
+  useEffect(() => {
+    if (!map.current) return;
+    const m = map.current;
+
+    const updateTempLayers = () => {
+      const tempSource = m.getSource('temperature-heatmap-source') as maplibregl.GeoJSONSource;
+      if (!tempSource) return;
+
+      const isVisible = showTemperatureHeatmap && temperatureGridData && temperatureGridData.features && temperatureGridData.features.length > 0;
+
+      if (isVisible) {
+        tempSource.setData(temperatureGridData);
+        m.setLayoutProperty('temperature-heatmap', 'visibility', 'visible');
+        m.setLayoutProperty('temperature-points', 'visibility', 'visible');
+        m.setLayoutProperty('temperature-labels', 'visibility', 'visible');
+      } else {
+        m.setLayoutProperty('temperature-heatmap', 'visibility', 'none');
+        m.setLayoutProperty('temperature-points', 'visibility', 'none');
+        m.setLayoutProperty('temperature-labels', 'visibility', 'none');
+      }
+    };
+
+    if (m.isStyleLoaded()) {
+      updateTempLayers();
+    } else {
+      m.once('idle', updateTempLayers);
+    }
+  }, [temperatureGridData, showTemperatureHeatmap]);
 
   // Handle crosshair cursor when placing hazard dome
   useEffect(() => {

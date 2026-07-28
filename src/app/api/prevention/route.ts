@@ -13,6 +13,8 @@ export async function POST(req: Request) {
       activeDefenses,
       densityPerKm2,
       weatherRisk,
+      satelliteFire,
+      airQuality,
     } = await req.json();
 
     if (!process.env.OPENAI_API_KEY) {
@@ -64,6 +66,30 @@ ${riskList || "  - No statistically significant risk signals detected"}
 Use this climate data as the PRIMARY basis for your analysis. The user-selected threat (${incidentType}) may be overridden or supplemented by the climate evidence above.`;
     }
 
+    // Build satellite fire detection context if available
+    let satelliteContext = "";
+    if (satelliteFire?.available) {
+      if (satelliteFire.hotspotCount > 0) {
+        satelliteContext = `\nNASA FIRMS SATELLITE FIRE DETECTION (VIIRS, last 24h, 50km radius): ${satelliteFire.hotspotCount} active fire hotspot(s) detected, nearest ${satelliteFire.nearestDistanceKm.toFixed(1)}km away.`;
+      } else {
+        satelliteContext = `\nNASA FIRMS SATELLITE FIRE DETECTION: No active fire hotspots detected within 50km in the last 24h.`;
+      }
+    }
+
+    // Build ground air-quality sensor context if available
+    let airQualityContext = "";
+    if (airQuality?.available) {
+      airQualityContext = `\nGROUND AIR-QUALITY SENSOR (OpenAQ, nearest station "${airQuality.stationName}", ${airQuality.distanceKm?.toFixed(1)}km away): ${airQuality.parameter.toUpperCase()} = ${airQuality.value} ${airQuality.units}${airQuality.category ? ` (${airQuality.category})` : ""}.`;
+    }
+
+    const materialsReference = `
+ADVANCED MATERIALS REFERENCE (cite specific materials by name wherever relevant to ${incidentType} — do not just say "better materials", name the actual material class):
+- Cool roofs / Passive Daytime Radiative Cooling (PDRC) coatings — reflect and emit heat to cool below ambient temperature, reduce urban heat island and cooling demand. Relevant to: Heatwave, Drought, Wildfire.
+- Superabsorbent polymers / hydrogels — improve soil water retention for agriculture and urban green spaces during extended dry periods. Relevant to: Drought.
+- Permeable pavements — allow stormwater infiltration, reduce surface runoff and flooding, recharge groundwater (clogging/maintenance is a known tradeoff). Relevant to: Flooding, Heavy Rainfall, Thunderstorm.
+- Fiber-reinforced polymer (FRP) retrofitting and hydrophobic/corrosion-resistant coatings — strengthen and waterproof existing bridges, buildings and coastal infrastructure without full replacement. Relevant to: Flooding, Tropical Cyclone, Landslide, Extreme Cold.
+- Fire-retardant building materials and impact-resistant composites — defensible structural protection in fire-prone areas. Relevant to: Wildfire.`;
+
     const prompt = `You are Aegis Mitigation Engine, an AI disaster prevention and structural safety auditor.
 Analyze the threat profile for the following context:
 - Primary Disaster Threat: ${incidentType}
@@ -71,6 +97,9 @@ Analyze the threat profile for the following context:
 - Active Countermeasures: ${activeDefenses.join(", ") || "None"}
 - Local Population Density: ${densityPerKm2 || "Unknown"} people/km²
 ${weatherContext}
+${satelliteContext}
+${airQualityContext}
+${materialsReference}
 
 Perform these tasks:
 1. Based on ALL available evidence (climate data + selected threat), identify the top 1-3 most likely disaster types for this location and explain why.
@@ -78,8 +107,8 @@ Perform these tasks:
    a) Infrastructure Vulnerability
    b) Residential Vulnerability
    c) Evacuation Bottleneck Risk
-3. Create a prioritized 5-item emergency preparation checklist for local engineers, specific to this location's actual climate history.
-4. Write a concise, highly strategic mitigation directive (in Markdown format) referencing the specific weather patterns and historical extremes, outlining structural reinforcement steps, buffer zone creations, and sensor grid placements.
+3. Create a prioritized 5-item emergency preparation checklist for local engineers, specific to this location's actual climate history. Where a specific material from the reference list applies, name it explicitly in the checklist item.
+4. Write a concise, highly strategic mitigation directive (in Markdown format) referencing the specific weather patterns and historical extremes, outlining structural reinforcement steps, buffer zone creations, sensor grid placements, and specific advanced materials from the reference list above where applicable.
 
 Output your response strictly as a JSON object with this schema:
 {

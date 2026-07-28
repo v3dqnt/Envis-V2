@@ -66,7 +66,7 @@ Do not include any explanation or markdown formatting outside the JSON. The outp
         },
       ],
       temperature: 0.1,
-      max_tokens: 150,
+      max_tokens: 300,
     });
 
     const content = response.choices[0]?.message?.content || "{}";
