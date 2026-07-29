@@ -1,29 +1,55 @@
-# Envis — Aegis Command Centre
+# Aegis Mobile Application
 
-A real-time disaster intelligence platform built with Next.js 16 + MapLibre GL. Provides live global hazard feeds, AI-powered vulnerability auditing, climate risk analysis, and evacuation routing on an interactive 3D map.
+A native React Native & Expo mobile application for **Aegis Disaster Evacuation Control**.
 
-## Modules
+## Features
 
+<<<<<<< HEAD
 | Module | Description |
 |---|---|
 | **Aegis Route** | Real-time evacuation routing around active hazard zones with AI shelter recommendations |
 | **Aegis Prevent** | Multi-hazard prediction using real meteorological formulas (72h forecast) and OSM+elevation+weather polygon zones, with a "Route to Safety" handoff into Aegis Route |
 | **Mobile Alert Delivery** | Supabase/PostGIS backend matching published hazard alerts against a device's current location and saved commute points — see [Mobile Alert Delivery](#mobile-alert-delivery-supabase-backed) and [Agent instructions](#agent-instructions-wiring-alert-delivery-into-the-mobile-app) below |
+=======
+- **Live Hazard Map & Tracking**: View real-time disaster alerts, hazard radii, and high-vulnerability zone overlays.
+- **Smart Evacuation Routing**: Get turn-by-turn routing to nearest designated safe shelters avoiding danger zones.
+- **Emergency SOS & Signals**: One-tap emergency request broadcast with offline coordinates.
+- **AI-Powered Risk Analysis**: Integrated local climate risk assessment and safety recommendations.
+- **Role-Based Views**: Dedicated interfaces for Evacuees, First Responders, and Admin Dispatchers.
+>>>>>>> ebdcff7 (refactor: convert repo to mobile app only and move aegis-mobile to root)
 
 ---
 
-## Running Locally
+## Tech Stack
+
+- **Framework**: [Expo](https://expo.dev) (v54) & React Native (v0.81)
+- **Routing**: Expo Router (File-based navigation)
+- **UI Components**: React Native Paper, Lucide / Phosphor Icons, Expo Linear Gradient
+- **Maps**: React Native Maps & Map directions
+- **Backend / Database**: Supabase & OpenAI API
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js (v18+)
+- npm or yarn
+- [Expo Go](https://expo.dev/go) app on your mobile device (or iOS Simulator / Android Emulator)
+
+### 1. Install Dependencies
 
 ```bash
 npm install
-npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+### 2. Configure Environment Variables
 
-### Environment variables (`.env.local`)
+Create or update `.env` in the project root:
 
 ```env
+<<<<<<< HEAD
 NEXT_PUBLIC_MAPTILER_API_KEY=       # MapTiler — map tiles + geocoding
 OPENAI_API_KEY=                     # OpenAI — AI audit, vulnerability zones, shelters
 NEXT_PUBLIC_TOMTOM_API_KEY=         # TomTom — routing engine
@@ -569,199 +595,50 @@ useEffect(() => {
 The mobile companion app shows the user their current location relative to active disaster zones, highlights affected areas, and provides turn-by-turn evacuation directions.
 
 ### 1. Install dependencies
+=======
+EXPO_PUBLIC_SUPABASE_URL=your_supabase_url
+EXPO_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+EXPO_PUBLIC_OPENAI_API_KEY=your_openai_api_key
+```
+
+### 3. Start Development Server
+>>>>>>> ebdcff7 (refactor: convert repo to mobile app only and move aegis-mobile to root)
 
 ```bash
-npx expo install expo-location @rnmapbox/maps
-npm install @tanstack/react-query
-```
+# Start Expo dev server
+npm start
 
-### 2. Configure base URL
+# Run directly on Android
+npm run android
 
-```ts
-// lib/api.ts
-export const API_BASE =
-  process.env.EXPO_PUBLIC_API_URL ?? "https://<your-deployment>.vercel.app";
-```
+# Run directly on iOS
+npm run ios
 
-### 3. Fetch active disasters near the user
-
-```ts
-// hooks/useNearbyDisasters.ts
-import { useQuery } from "@tanstack/react-query";
-import * as Location from "expo-location";
-import { API_BASE } from "../lib/api";
-
-export function useNearbyDisasters() {
-  return useQuery({
-    queryKey: ["live-feed"],
-    queryFn: async () => {
-      const res = await fetch(`${API_BASE}/api/live-feed`);
-      if (!res.ok) throw new Error("Feed unavailable");
-      return res.json(); // { cyclones: [...], earthquakes: [...] }
-    },
-    refetchInterval: 5 * 60 * 1000, // refresh every 5 min
-  });
-}
-```
-
-### 4. Get affected area + vulnerability zones for a disaster
-
-When a user taps a disaster on the map, call `/api/vulnerability-zones` to get the affected polygons and overlay them.
-
-```ts
-// hooks/useVulnerabilityZones.ts
-export async function fetchVulnerabilityZones(
-  lat: number,
-  lng: number,
-  disasterType: string
-) {
-  const res = await fetch(`${API_BASE}/api/vulnerability-zones`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ lat, lng, disasterType, radiusKm: 5 }),
-  });
-  if (!res.ok) throw new Error("Zones unavailable");
-  const data = await res.json();
-  return data.zones; // GeoJSON Feature[]
-}
-```
-
-Render on the map (using `@rnmapbox/maps`):
-
-```tsx
-import MapboxGL from "@rnmapbox/maps";
-
-const SEVERITY_COLORS = {
-  high: "#dc2626",
-  medium: "#ea580c",
-  low: "#eab308",
-};
-
-function VulnerabilityLayer({ zones }) {
-  const geojson = { type: "FeatureCollection", features: zones };
-
-  return (
-    <MapboxGL.ShapeSource id="vuln-zones" shape={geojson}>
-      {["high", "medium", "low"].map((severity) => (
-        <MapboxGL.CircleLayer
-          key={severity}
-          id={`vuln-${severity}`}
-          filter={["==", ["get", "severity"], severity]}
-          style={{
-            circleRadius: ["interpolate", ["linear"], ["zoom"], 10, 25, 15, 80],
-            circleColor: SEVERITY_COLORS[severity],
-            circleOpacity: 0.3,
-            circleStrokeColor: SEVERITY_COLORS[severity],
-            circleStrokeWidth: 2,
-            circleStrokeOpacity: 0.8,
-          }}
-        />
-      ))}
-    </MapboxGL.ShapeSource>
-  );
-}
-```
-
-### 5. Get evacuation shelters and route
-
-```ts
-// Get shelters outside the hazard
-async function getEvacuationShelters(
-  hazardCenter: [number, number],
-  hazardRadiusMeters: number
-) {
-  const res = await fetch(`${API_BASE}/api/evacuation-points`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ hazardCenter, hazardRadius: hazardRadiusMeters }),
-  });
-  const data = await res.json();
-  return data.shelters; // [{ id, name, direction, coordinates, reason }]
-}
-```
-
-### 6. Get climate risk for the user's current location
-
-```ts
-async function getLocalWeatherRisk(lat: number, lng: number, city: string) {
-  const params = new URLSearchParams({
-    lat: lat.toString(),
-    lng: lng.toString(),
-    city,
-  });
-  const res = await fetch(`${API_BASE}/api/weather-risk?${params}`);
-  const data = await res.json();
-  // data.risks[] — sorted high → low confidence
-  return data;
-}
-```
-
-### Full screen example
-
-```tsx
-import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet } from "react-native";
-import * as Location from "expo-location";
-import MapboxGL from "@rnmapbox/maps";
-import { useNearbyDisasters } from "./hooks/useNearbyDisasters";
-import { fetchVulnerabilityZones } from "./hooks/useVulnerabilityZones";
-
-export default function DisasterMap() {
-  const [location, setLocation] = useState(null);
-  const [zones, setZones] = useState([]);
-  const { data: feed } = useNearbyDisasters();
-
-  useEffect(() => {
-    (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") return;
-      const loc = await Location.getCurrentPositionAsync({});
-      setLocation(loc.coords);
-    })();
-  }, []);
-
-  // When feed loads, get vulnerability zones for the highest-severity event near user
-  useEffect(() => {
-    if (!feed || !location) return;
-    const topEvent = [...(feed.cyclones ?? []), ...(feed.earthquakes ?? [])].find(
-      (e) => e.alertLevel === "red"
-    );
-    if (!topEvent) return;
-
-    fetchVulnerabilityZones(
-      topEvent.coordinates[1],
-      topEvent.coordinates[0],
-      topEvent.type
-    ).then(setZones);
-  }, [feed, location]);
-
-  return (
-    <MapboxGL.MapView style={styles.map}>
-      <MapboxGL.Camera
-        centerCoordinate={
-          location ? [location.longitude, location.latitude] : [0, 0]
-        }
-        zoomLevel={11}
-      />
-      {zones.length > 0 && <VulnerabilityLayer zones={zones} />}
-    </MapboxGL.MapView>
-  );
-}
-
-const styles = StyleSheet.create({
-  map: { flex: 1 },
-});
+# Run in web browser
+npm run web
 ```
 
 ---
 
-## Data Sources
+## Project Structure
 
-| Source | Data | Refresh |
-|---|---|---|
-| [GDACS](https://gdacs.org) | Global tropical cyclones, floods, earthquakes, wildfires | 5 min |
-| [USGS](https://earthquake.usgs.gov) | Global earthquakes ≥ M4.5 | 5 min |
-| [Open-Meteo](https://open-meteo.com) | 10-year weather archive + 30-day recent conditions | Daily |
-| [Tomorrow.io](https://tomorrow.io) | Tropical cyclone tracks & forecast cones | 5 min (requires key) |
-| [XWeather](https://xweather.com) | Global tropical cyclones (NHC + JTWC) | 5 min (requires key) |
-| [OpenStreetMap / Overpass](https://overpass-api.de) | Buildings, waterways, land use for vulnerability analysis | On demand |
+```
+.
+├── app/                  # Expo Router file-based screens and navigation
+│   ├── (auth)/           # Authentication flows (login, register)
+│   ├── (app)/            # Main app tabs & screens (map, emergency, shelters, profile)
+│   ├── _layout.tsx       # Root layout provider
+│   └── index.tsx         # Entry screen
+├── assets/               # Images, fonts, and static assets
+├── components/           # Reusable UI components
+├── lib/                  # Services, helpers, Supabase client, theme tokens
+├── app.json              # Expo application configuration
+├── package.json          # Dependencies and scripts
+└── tsconfig.json         # TypeScript configuration
+```
+
+---
+
+## Documentation
+
+For full details on the mobile app architecture, feature specs, and implementation details, see [MOBILE_APP_GUIDE.md](./MOBILE_APP_GUIDE.md).
