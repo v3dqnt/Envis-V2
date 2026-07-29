@@ -1,0 +1,496 @@
+ Here is a comprehensive accuracy upgrade plan for Aegis Prevent, organized by disaster type with specific formula improvements, new free data sources, and architectural upgrades.
+
+---
+
+## 1. Wildfire
+
+### Formula Upgrades
+
+**Replace the current VPD-only model with the Canadian Forest Fire Weather Index (FWI) system.** This is the operational global standard used by fire management agencies.
+
+| Component | What It Measures | Formula |
+|---|---|---|
+| **FFMC** (Fine Fuel Moisture Code) | Moisture content of surface litter | `FFMC = 59.5 × (250 - m) / (147.2 + m)` where *m* is derived from temp, RH, wind, rain |
+| **DMC** (Duff Moisture Code) | Moisture of loosely compacted organic layers | Logarithmic drying based on temp and RH |
+| **DC** (Drought Code) | Moisture of deep compact organic layers | Exponential drying, rainfall threshold 2.8mm |
+| **ISI** (Initial Spread Index) | Fire spread rate | `ISI = 0.208 × e^(0.05039 × W) × (91.9 × e^(-0.1386 × m) × (1 + m^5.31 / 4.93×10^7))` |
+| **BUI** (Buildup Index) | Total fuel available | `BUI = 0.8 × DMC × DC / (DMC + 0.4×DC)` |
+| **FWI** (Fire Weather Index) | Overall fire intensity | `FWI = ISI × (0.626 × BUI^0.809 + 2)` |
+
+**Scoring upgrade:**
+```javascript
+// Replace current score with FWI-based severity
+fwiScore = clamp01((FWI - 5) / 55)   // FWI 5=low, 30=high, 60=extreme
+dcScore  = clamp01((DC - 100) / 300) // Deep drought signal
+score    = fwiScore * 0.6 + dcScore * 0.25 + anomalyF * 0.15
+```
+
+**Why:** VPD alone misses fuel moisture dynamics. FWI accounts for rainfall interception thresholds (rain must exceed 2.8mm to affect DC), wind-driven spread, and fuel buildup — all validated across boreal and temperate forests.
+
+### New Data Sources
+
+| Source | Endpoint | What It Adds |
+|---|---|---|
+| **NASA FIRMS (VIIRS + MODIS)** | Already integrated — add **MODIS Terra/Aqua** alongside VIIRS | Cross-satellite fire detection reduces false positives |
+| **Copernicus Atmosphere Monitoring Service (CAMS)** | `atmosphere.copernicus.eu` | Global fire emissions, smoke plume forecasts, PM2.5 from fires |
+| **NASA POWER** | `power.larc.nasa.gov/api/pages` | Historical solar radiation, humidity, wind — fills Open-Meteo gaps |
+| **Open-Meteo Fire Weather** | `open-meteo.com/en/docs/fire-weather-api` | **Native FWI calculation** — free, no key, returns FFMC/DMC/DC/ISI/BUI/FWI directly |
+
+**Action:** Switch to Open-Meteo's native Fire Weather API. It calculates the full FWI system for you — no need to implement the formulas client-side.
+
+---
+
+## 2. Flooding & Flash Flood
+
+### Formula Upgrades
+
+**Current weakness:** Your flood model only uses precipitation and elevation. It lacks:
+- River discharge volume
+- Snowmelt contribution
+- Impervious surface ratio (urban flash flood multiplier)
+- Antecedent soil saturation with memory decay
+
+**Upgrade to a Composite Flood Index (CFI):**
+
+```javascript
+// New components
+snowmeltF    = clamp01(snowDepthChangeCm / 15)        // Rapid melt event
+imperviousF  = clamp01(osmImperviousRatio)           // From OSM landuse=residential/commercial
+riverLevelF  = clamp01((riverDischarge - q20) / (q80 - q20))  // Percentile vs historical
+
+// Flash flood (urban)
+urbanFloodScore = structureFactor * 0.30 
+                  + soilSaturation * 0.25 
+                  + rainFactor * 0.20 
+                  + depthFactor * 0.10
+                  + imperviousF * 0.15                // NEW: urban multiplier
+
+// Riverine flooding
+riverFloodScore = rainFactor * 0.35
+                  + riverLevelF * 0.30
+                  + lowLyingFactor * 0.20
+                  + snowmeltF * 0.15
+```
+
+**Antecedent Precipitation Index upgrade:**
+```javascript
+// Current: API = Σ Pᵢ · k^i with k=0.9
+// Better: Use variable decay based on evapotranspiration
+k_eff = 0.85 + 0.1 * clamp01((ET₀ - 2) / 6)  // Higher ET = faster drying = lower k
+API   = Σ Pᵢ · k_eff^i
+```
+
+### New Data Sources
+
+| Source | Endpoint | What It Adds |
+|---|---|---|
+| **GloFAS (Copernicus)** | `confluence.ecmwf.int` / `cds.climate.copernicus.eu` | Global river discharge forecasts, flood probability up to 30 days |
+| **Open-Meteo Flood API** | `flood-api.open-meteo.com` | **Free, no key** — river discharge, flood forecasts globally |
+| **USGS Water Services** | `waterservices.usgs.gov/nwis/iv` | Real-time stream gauge data (USA only) |
+| **NASA SMAP/Sentinel Soil Moisture** | `nsidc.org` (passive microwave) | Root-zone soil moisture independent of model reanalysis |
+| **OpenStreetMap Landuse** | Already queried — add `landuse=residential`, `surface=asphalt` | Impervious surface ratio for urban flash flood multiplier |
+
+**Action:** Integrate Open-Meteo Flood API (free, no key). It provides daily river discharge and 1-in-10-year return period comparisons — exactly what you need for `riverLevelF`.
+
+---
+
+## 3. Thunderstorm
+
+### Formula Upgrades
+
+**Current:** CAPE + LI + CIN. Missing wind shear and mid-level moisture.
+
+**Add operational convective indices:**
+
+| Index | Formula | Threshold |
+|---|---|---|
+| **K-Index** | `KI = (T850 - T500) + Td850 - (T700 - Td700)` | KI > 30 = thunderstorm likely, > 35 = severe |
+| **Total Totals** | `TT = (T850 - T500) + (Td850 - T500)` | TT > 50 = thunderstorm, > 55 = severe |
+| **SWEAT** | `SWEAT = 12×Td850 + 20×(TT-49) + 2×f850 + f500 + 125×(S+0.2)` | > 300 = severe potential |
+| **Bulk Wind Shear** | `BS = windSpeed500hPa - windSpeedSurface` | BS > 20 m/s = supercell potential |
+
+**Upgraded score:**
+```javascript
+capeF      = clamp01((CAPE - 300) / 2200)
+liF        = clamp01(-liftedIndex / 6)
+uncapped   = clamp01(1 - abs(CIN) / 150)
+kiF        = clamp01((KI - 20) / 20)           // NEW
+ttF        = clamp01((TT - 40) / 20)           // NEW
+shearF     = clamp01((bulkShear - 10) / 30)    // NEW: supercell discriminator
+
+score = capeF * 0.30 + liF * 0.20 + uncapped * 0.10 
+        + kiF * 0.15 + ttF * 0.10 + shearF * 0.15
+```
+
+**Why:** CAPE alone is a poor severe weather discriminator. 2000 J/kg CAPE with 10 m/s shear produces weak storms; 1000 J/kg with 35 m/s shear produces supercells. Wind shear is the missing variable.
+
+### New Data Sources
+
+| Source | What It Adds |
+|---|---|
+| **Open-Meteo (already used)** | Request `windspeed_850hPa`, `windspeed_500hPa`, `temperature_850hPa`, `dewpoint_850hPa` for KI/TT calculations |
+| **NOAA/NWS SPC Convective Outlooks** | `spc.noaa.gov` | Pre-calculated severe weather probabilities (USA only, but gold standard) |
+
+---
+
+## 4. Tropical Cyclone
+
+### Formula Upgrades
+
+**Critical missing variable: Sea Surface Temperature (SST) and wind shear.**
+
+Tropical cyclones require SST ≥ 26.5°C and low vertical wind shear (< 10 m/s) to develop.
+
+```javascript
+// NEW components
+sstF       = clamp01((SST - 24) / 4)           // 26.5°C = 0.625, 28.5°C = 1.0
+shearF     = clamp01(1 - (windShear - 5) / 15) // Low shear = high score
+oceanHeatF = clamp01((TCHP - 50) / 100)      // Tropical Cyclone Heat Potential
+
+// Upgraded score
+score = pressureF * 0.30 + windF * 0.35 + anomalyF * 0.10 
+        + sstF * 0.15 + shearF * 0.10
+```
+
+**Saffir-Simpson upgrade:** Add gust-based classification:
+```javascript
+gustCategory = saffirSimpson(gustKmh * 0.9)  // Gusts are ~90% of sustained in eyewall
+```
+
+### New Data Sources
+
+| Source | Endpoint | What It Adds |
+|---|---|---|
+| **Copernicus Marine Service** | `marine.copernicus.eu` | Daily SST, sea level anomaly — free with registration |
+| **NOAA Coral Reef Watch** | `coastwatch.pfeg.noaa.gov/erddap` | SST, bleaching hotspots — free, no key |
+| **Open-Meteo Marine Weather** | `marine.open-meteo.com` | **Free, no key** — wave height, SST |
+| **IBTrACS** | `ncdc.noaa.gov/ibtracs` | Historical cyclone tracks for climatological risk baselines |
+
+---
+
+## 5. Blizzard
+
+### Formula Upgrades
+
+**Current:** NWS criteria (wind ≥ 56 km/h, visibility < 400m, snow, ≥3 hours). This is good but add:
+
+```javascript
+// NEW: Blowing snow potential
+blowingSnowF = clamp01((snowDepthCm * windKmh) / 200)  
+// High snow depth + high wind = self-sustaining blizzard even without new snowfall
+
+// NEW: Snowfall rate intensity
+snowRateF = clamp01(snowfallRateCmH / 5)  // >5 cm/h = heavy
+
+// Upgraded duration scoring
+meetsDuration = longestRunHours >= 3
+durationF     = clamp01(longestRunHours / 6)
+extentF       = clamp01(qualifyingHours / 12)
+intensityF    = snowRateF * 0.5 + blowingSnowF * 0.5  // NEW
+
+score = (meetsDuration ? 0.40 : 0.15) 
+        + durationF * 0.30 
+        + extentF * 0.15 
+        + intensityF * 0.15
+```
+
+### New Data Sources
+
+| Source | What It Adds |
+|---|---|
+| **Open-Meteo** | Already used — add `snowfall`, `snow_depth` variables |
+| **NOAA NCEP Stage IV** | `nomads.ncep.noaa.gov` | Multi-sensor snowfall accumulation (USA) |
+
+---
+
+## 6. Ice Storm
+
+### Formula Upgrades
+
+**Current:** Simple thermal profile. Upgrade to **CRREL Ice Accretion Model** (Cold Regions Research and Engineering Laboratory):
+
+```javascript
+// Current: accretion = cumulative precip during freezing rain
+// Better: CRREL model
+accretionRate = 0.7 * precipRateMmH * (1 + windKmh/30) * freezingEfficiency
+// Wind increases collection efficiency on wires/trees
+
+// Freezing efficiency based on wet-bulb temperature
+if (wetBulbC < -2) efficiency = 0.3   // Dry growth, rime ice (less dense)
+else if (wetBulbC < 0) efficiency = 0.7 // Mixed
+else efficiency = 1.0                 // Wet growth, clear ice (dense, dangerous)
+
+// Total accretion
+accretionMm = Σ(accretionRate * dt)
+```
+
+**Add wet-bulb temperature calculation:**
+```javascript
+wetBulbC = tempC * atan(0.151977 * sqrt(RH + 8.313659)) 
+           + atan(tempC + RH) - atan(RH - 1.676331) 
+           + 0.00391838 * RH^(3/2) * atan(0.023101 * RH) - 4.686035
+```
+
+### New Data Sources
+
+| Source | What It Adds |
+|---|---|
+| **Open-Meteo** | Add `wet_bulb_temperature_2m` or calculate from `temperature_2m` + `relative_humidity_2m` |
+
+---
+
+## 7. Extreme Cold
+
+### Formula Upgrades
+
+**Current:** Wind chill + frostbite. This is solid but add:
+
+```javascript
+// NEW: WBGT (Wet Bulb Globe Temperature) for summer heat stress
+// This fills a gap — you have extreme cold but no heat stress index
+wbgtC = 0.7 * wetBulbC + 0.2 * tempC + 0.1 * windKmh * 0.5
+
+// Extreme cold scoring upgrade — add "dangerous wind chill duration"
+dangerousHours = hours where windChill < -27  // Frostbite < 30min
+extremeHours   = hours where windChill < -40   // Frostbite < 10min
+
+score = absoluteF * 0.35 + durationF * 0.25 + anomalyF * 0.30 
+        + clamp01(extremeHours / 6) * 0.10
+```
+
+### New Data Sources
+
+| Source | What It Adds |
+|---|---|
+| **Open-Meteo** | Already has all variables needed for wet-bulb calculation |
+
+---
+
+## 8. Heatwave
+
+### Formula Upgrades
+
+**Current:** Temperature anomaly only. Missing humidity and duration.
+
+**Upgrade to Humidex / Heat Index + Excess Heat Factor (EHF):**
+
+```javascript
+// Humidex (Canada) or Heat Index (USA)
+humidex = tempC + (6.11 * e^(5417.7530 * (1/273.16 - 1/dewpointK)) - 10) / 5
+
+// Excess Heat Factor (Australia — best operational heatwave metric)
+EHI_sig = max(0, avgTemp3Day - 95thPercentileHistorical3Day)
+EHI_accl = max(0, avgTemp3Day - avgTemp30Day)
+EHF = EHI_sig * max(1, EHI_accl)
+
+// Scoring
+heatIndexF = clamp01((humidex - 30) / 25)   // 30=comfortable, 55=dangerous
+ehfF       = clamp01(EHF / 30)              // EHF > 3 = heatwave, > 30 = extreme
+durationF  = clamp01(heatwaveDays / 5)      // 5+ days = severe
+
+score = heatIndexF * 0.40 + ehfF * 0.35 + durationF * 0.25
+```
+
+**Why:** Temperature anomaly alone doesn't capture humidity's role. 35°C at 20% RH is uncomfortable; 35°C at 80% RH is lethal. Humidex and EHF are the operational standards.
+
+### New Data Sources
+
+| Source | What It Adds |
+|---|---|
+| **Open-Meteo** | Already used — ensure `dewpoint_2m` is requested |
+| **Copernicus ERA5-Land** | `cds.climate.copernicus.eu` | Historical temperature percentiles for EHF baseline |
+
+---
+
+## 9. Drought
+
+### Formula Upgrades
+
+**Current:** SPI only. SPI ignores temperature-driven evapotranspiration.
+
+**Upgrade to SPEI (Standardized Precipitation Evapotranspiration Index):**
+
+```javascript
+// Water balance
+D = precipitation - ET₀
+
+// Accumulated water balance over time scales (3, 6, 12 months)
+D_accumulated = Σ Dᵢ
+
+// Log-logistic distribution fit to historical D_accumulated
+// Then convert to standard normal z-score (same as SPI but with ET₀)
+
+// SPEI captures "hot droughts" — periods where normal rainfall is 
+// offset by higher temperatures (e.g., 2022 European drought)
+```
+
+**Scoring upgrade:**
+```javascript
+speiF   = spiCategory(SPEI_6month).severity   // 6-month is standard agricultural drought
+spiF    = spiCategory(SPI_6month).severity
+soilF   = clamp01((0.22 - deepSoilMoisture) / 0.14)
+etAnom  = clamp01((ET₀_sum - historicalET₀) / historicalET₀)  // NEW
+
+score = speiF * 0.40 + spiF * 0.15 + soilF * 0.25 + dryRunF * 0.10 + etAnom * 0.10
+```
+
+### New Data Sources
+
+| Source | What It Adds |
+|---|---|
+| **Open-Meteo** | Already provides ET₀ — use it to calculate SPEI |
+| **NASA GRACE/GRACE-FO** | `grace.jpl.nasa.gov` | Groundwater storage anomalies — the "true" drought signal |
+| **Copernicus Global Drought Observatory** | `edo.jrc.ec.europa.eu` | Pre-combined drought indices |
+
+---
+
+## 10. Landslide
+
+### Formula Upgrades
+
+**Current:** Elevation gradient + GPT-4o. Missing the rainfall trigger.
+
+**Add rainfall intensity-duration (I-D) thresholds:**
+
+```javascript
+// Critical rainfall thresholds for landslide initiation
+// (Guzzetti et al. 2008 global thresholds)
+I = peakHourlyRainMm   // Intensity in mm/h
+D = durationHours      // Duration of rainfall
+
+// Power-law threshold
+thresholdI = 14.82 * D^(-0.39)   // Global lower-bound threshold
+
+rainTriggerF = clamp01(I / thresholdI)
+
+// Combined score
+score = maxGradientPct * 0.25       // Terrain (existing)
+        + rainTriggerF * 0.35       // NEW: rainfall trigger
+        + soilSaturation * 0.20     // Antecedent wetness
+        + landCoverVulnerability * 0.20  // NEW: deforestation/bare soil
+```
+
+**Land cover vulnerability from OSM:**
+```javascript
+// Query OSM for: natural=cliff, landuse=quarry, natural=scree, natural=mud
+// Also check for recent wildfire (from NASA FIRMS history) — burn scars increase landslide risk 3-5x
+```
+
+### New Data Sources
+
+| Source | What It Adds |
+|---|---|
+| **NASA SRTM / Copernicus DEM** | Higher resolution elevation (30m vs current 1.1km sampling) |
+| **NASA GLC (Global Landslide Catalog)** | `gpm.nasa.gov/landslides` | Historical landslide locations for validation |
+| **Open-Meteo Soil Moisture** | Already used — ensure 0-7cm layer is included |
+| **GPM IMERG** | `gpm.nasa.gov` | Satellite rainfall for I-D thresholds in data-sparse regions |
+
+---
+
+## 11. Temperature Heatmap
+
+### Upgrades
+
+**Current:** 11×11 grid, simple interpolation.
+
+**Upgrade to inverse distance weighting (IDW) interpolation:**
+
+```javascript
+// Instead of MapLibre's built-in heatmap kernel, pre-compute IDW
+// for smoother gradients between grid points
+
+function idw(grid, targetLat, targetLng, power = 2) {
+    let numerator = 0, denominator = 0;
+    for (const point of grid) {
+        const d = haversine(targetLat, targetLng, point.lat, point.lng);
+        if (d < 0.001) return point.temp;  // Exact match
+        const w = 1 / Math.pow(d, power);
+        numerator += w * point.temp;
+        denominator += w;
+    }
+    return numerator / denominator;
+}
+```
+
+**Increase grid resolution:** Move from 11×11 to 15×15 (still only 225 API calls, well within Open-Meteo limits).
+
+---
+
+## 12. New Free APIs to Add (System-Wide)
+
+| API | Endpoint | Use Case | Key Required? |
+|---|---|---|---|
+| **Open-Meteo Air Quality** | `air-quality-api.open-meteo.com` | PM2.5, PM10, NO₂, O₃, SO₂, CO, pollen forecasts | **No** |
+| **Open-Meteo Flood** | `flood-api.open-meteo.com` | River discharge, return periods, flood forecasts | **No** |
+| **Open-Meteo Soil Type** | `soil-type-api.open-meteo.com` | USDA soil taxonomy, hydraulic conductivity | **No** |
+| **Open-Meteo Fire Weather** | `open-meteo.com/en/docs/fire-weather-api` | FFMC, DMC, DC, ISI, BUI, FWI | **No** |
+| **NASA POWER** | `power.larc.nasa.gov/api/pages` | Solar radiation, humidity, temperature, wind — global, daily, 1984-present | **No** |
+| **CHIRPS Rainfall** | `chc.ucsb.edu/data/chirps` | 30+ years of satellite+gauge rainfall, 0.05° resolution | **No** |
+| **GloFAS (Copernicus)** | `confluence.ecmwf.int` | Global river discharge, flood probability | Free registration |
+| **Copernicus DEM** | `dataspace.copernicus.eu` | 30m global elevation | Free registration |
+| **USGS Water Services** | `waterservices.usgs.gov/nwis/iv` | Real-time stream gauges (USA) | **No** |
+| **NOAA NWS API** | `api.weather.gov` | Alerts, forecasts, radar (USA) | **No** |
+| **WMO Severe Weather** | `severeweather.wmo.int` | Global severe weather warnings | **No** |
+| **OpenAQ v3** | Already integrated — expand to v3 sensors | Historical trends, not just current | Free signup |
+
+---
+
+## 13. Architectural Upgrades
+
+### A. Ensemble Forecasting
+Instead of a single deterministic score, run **three parallel calculations**:
+1. **Open-Meteo** (ECMWF IFS model)
+2. **GFS** (NOAA — via Open-Meteo or NOAA directly)
+3. **UKMO/MeteoSwiss** (via Open-Meteo)
+
+Display the **ensemble spread** (min/max/mean). If all three models agree on a blizzard, confidence is "high". If they diverge, confidence drops to "medium".
+
+### B. Bias Correction
+Compare Open-Meteo forecasts against **NASA POWER** historical observations for the same location/date. Compute a local bias correction:
+```javascript
+biasCorrectedTemp = forecastTemp + (histObsMean - histForecastMean)
+```
+
+### C. Probabilistic Risk
+Replace binary thresholds with probability:
+```javascript
+// Instead of: if (score > 0.55) return "high"
+// Use: probability of exceedance based on ensemble spread
+p_high = normalCDF(score, ensembleMean, ensembleStd)
+```
+
+### D. Temporal Cascading
+Link hazards causally:
+- Heavy rain (Flash Flood) → soil saturation → Landslide (24-48h lag)
+- Drought + Heatwave → Wildfire (7-30 day lag)
+- Tropical Cyclone → Extreme Cold (post-cyclone cold surge)
+
+---
+
+## 14. Implementation Priority
+
+| Priority | Change | Impact | Effort |
+|---|---|---|---|
+| **P0** | Switch Wildfire to Open-Meteo Fire Weather API (FWI) | Very High | Low |
+| **P0** | Add Open-Meteo Flood API for river discharge | Very High | Low |
+| **P0** | Upgrade Heatwave to Humidex + EHF | High | Low |
+| **P1** | Add K-Index + wind shear to Thunderstorm | High | Medium |
+| **P1** | Add SPEI alongside SPI for Drought | High | Medium |
+| **P1** | Add rainfall I-D thresholds to Landslide | High | Medium |
+| **P2** | Integrate NASA POWER for bias correction | Medium | Medium |
+| **P2** | Upgrade Ice Storm to CRREL accretion model | Medium | High |
+| **P2** | Add SST + wind shear to Tropical Cyclone | Medium | Medium |
+| **P3** | Ensemble multi-model forecasting | High | High |
+| **P3** | Copernicus DEM 30m for elevation | Medium | High |
+
+---
+
+## 15. Quick Wins (Do These First)
+
+1. **Open-Meteo Fire Weather API** — One API call replaces your entire VPD-based wildfire formula with operational FWI.
+2. **Open-Meteo Flood API** — One API call adds river discharge to your flood model.
+3. **Request `dewpoint_2m` from Open-Meteo** — Enables Humidex calculation for heatwaves instantly.
+4. **Request `windspeed_850hPa` and `windspeed_500hPa`** — Enables bulk wind shear for thunderstorm severity.
+5. **Add `wet_bulb_temperature_2m` to Open-Meteo calls** — Improves ice storm accretion accuracy.
+
+All five are **free, no API key, single-line changes** to your existing Open-Meteo integration.
