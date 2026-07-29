@@ -1,16 +1,23 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
+import { Card } from "@astryxdesign/core/Card";
+import { Layout, LayoutHeader, LayoutContent, VStack, HStack } from "@astryxdesign/core/Layout";
+import { Heading } from "@astryxdesign/core/Heading";
+import { Text } from "@astryxdesign/core/Text";
+import { Button } from "@astryxdesign/core/Button";
+import { TextInput } from "@astryxdesign/core/TextInput";
+import { Switch } from "@astryxdesign/core/Switch";
+import { Badge } from "@astryxdesign/core/Badge";
+import { Collapsible } from "@astryxdesign/core/Collapsible";
+import { MetadataList, MetadataListItem } from "@astryxdesign/core/MetadataList";
+import { Item } from "@astryxdesign/core/Item";
+import { Divider } from "@astryxdesign/core/Divider";
 import {
   AlertTriangle,
   Waves,
   Flame,
   Activity,
-  Sparkles,
   Loader2,
   CheckCircle2,
   ShieldCheck,
@@ -27,7 +34,6 @@ import {
   Clock,
   ChevronDown,
   ChevronUp,
-  Tornado,
   Sun,
   CloudLightning,
   ThermometerSnowflake,
@@ -38,31 +44,6 @@ import {
   Radio,
 } from "lucide-react";
 import type { WeatherRiskPayload } from "@/app/api/weather-risk/route";
-
-interface SwitchProps {
-  checked: boolean;
-  onCheckedChange: () => void;
-  disabled?: boolean;
-}
-
-function Switch({ checked, onCheckedChange, disabled }: SwitchProps) {
-  return (
-    <button
-      type="button"
-      onClick={onCheckedChange}
-      disabled={disabled}
-      className={`relative inline-flex h-5.5 w-10 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:opacity-40 disabled:cursor-not-allowed ${
-        checked ? "bg-emerald-600" : "bg-neutral-300/80"
-      }`}
-    >
-      <span
-        className={`pointer-events-none inline-block h-4.5 w-4.5 transform rounded-full bg-white shadow-md ring-0 transition-all duration-300 ease-in-out ${
-          checked ? "translate-x-4.5" : "translate-x-0"
-        }`}
-      />
-    </button>
-  );
-}
 
 interface PreventionSidebarProps {
   hazardCenter: [number, number] | null;
@@ -98,24 +79,26 @@ const HAZARD_TYPES = [
   "Heatwave", "Drought", "Blizzard", "Ice Storm", "Extreme Cold", "Landslide",
 ];
 
-const HAZARD_META: Record<string, { icon: React.ReactNode; color: string }> = {
-  Wildfire: { icon: <Flame className="w-4 h-4" />, color: "text-orange-500" },
-  Flooding: { icon: <Waves className="w-4 h-4" />, color: "text-blue-500" },
-  "Flash Flood": { icon: <Waves className="w-4 h-4" />, color: "text-cyan-500" },
-  "Ice Storm": { icon: <Snowflake className="w-4 h-4" />, color: "text-cyan-300" },
-  "Toxic Plume": { icon: <Skull className="w-4 h-4" />, color: "text-green-500" },
-  Earthquake: { icon: <Activity className="w-4 h-4" />, color: "text-amber-500" },
-  Tornado: { icon: <Wind className="w-4 h-4" />, color: "text-teal-500" },
-  "Radiation Leak": { icon: <Radiation className="w-4 h-4" />, color: "text-lime-500" },
-  "Chemical Spill": { icon: <Biohazard className="w-4 h-4" />, color: "text-yellow-500" },
-  Blizzard: { icon: <Snowflake className="w-4 h-4" />, color: "text-sky-400" },
-  "Volcanic Eruption": { icon: <Mountain className="w-4 h-4" />, color: "text-rose-600" },
-  "Tropical Cyclone": { icon: <Tornado className="w-4 h-4" />, color: "text-cyan-600" },
-  Heatwave: { icon: <Thermometer className="w-4 h-4" />, color: "text-red-600" },
-  Drought: { icon: <Sun className="w-4 h-4" />, color: "text-amber-500" },
-  "Extreme Cold": { icon: <ThermometerSnowflake className="w-4 h-4" />, color: "text-blue-400" },
-  Thunderstorm: { icon: <CloudLightning className="w-4 h-4" />, color: "text-indigo-500" },
-  Landslide: { icon: <MountainSnow className="w-4 h-4" />, color: "text-stone-600" },
+// Astryx hue-token colour per hazard, used on icons only (Badge/Card variants
+// carry the same semantics elsewhere so the two stay consistent).
+const HAZARD_META: Record<string, { icon: React.ReactNode }> = {
+  Wildfire: { icon: <Flame className="w-4 h-4 text-orange-vivid" /> },
+  Flooding: { icon: <Waves className="w-4 h-4 text-blue-vivid" /> },
+  "Flash Flood": { icon: <Waves className="w-4 h-4 text-cyan-vivid" /> },
+  "Ice Storm": { icon: <Snowflake className="w-4 h-4 text-cyan-vivid" /> },
+  "Toxic Plume": { icon: <Skull className="w-4 h-4 text-green-vivid" /> },
+  Earthquake: { icon: <Activity className="w-4 h-4 text-yellow-vivid" /> },
+  Tornado: { icon: <Wind className="w-4 h-4 text-teal-vivid" /> },
+  "Radiation Leak": { icon: <Radiation className="w-4 h-4 text-yellow-vivid" /> },
+  "Chemical Spill": { icon: <Biohazard className="w-4 h-4 text-yellow-vivid" /> },
+  Blizzard: { icon: <Snowflake className="w-4 h-4 text-cyan-vivid" /> },
+  "Volcanic Eruption": { icon: <Mountain className="w-4 h-4 text-red-vivid" /> },
+  "Tropical Cyclone": { icon: <Wind className="w-4 h-4 text-cyan-vivid" /> },
+  Heatwave: { icon: <Thermometer className="w-4 h-4 text-red-vivid" /> },
+  Drought: { icon: <Sun className="w-4 h-4 text-yellow-vivid" /> },
+  "Extreme Cold": { icon: <ThermometerSnowflake className="w-4 h-4 text-blue-vivid" /> },
+  Thunderstorm: { icon: <CloudLightning className="w-4 h-4 text-purple-vivid" /> },
+  Landslide: { icon: <MountainSnow className="w-4 h-4 text-gray-vivid" /> },
 };
 
 // Hazard types with a real climate-derived occurrence signal (deriveRisks() in
@@ -136,10 +119,11 @@ const FORECAST_HAZARDS: Record<string, string> = {
   Drought: "Drought Stress",
 };
 
-const CONFIDENCE_STYLES: Record<string, string> = {
-  high: "bg-red-500/15 border-red-500/40 text-red-400",
-  medium: "bg-orange-500/10 border-orange-500/30 text-orange-400",
-  low: "bg-yellow-500/10 border-yellow-500/30 text-yellow-400",
+type ConfidenceLevel = "high" | "medium" | "low";
+const CONFIDENCE_BADGE: Record<ConfidenceLevel, "error" | "warning" | "info"> = {
+  high: "error",
+  medium: "warning",
+  low: "info",
 };
 
 // Maps weather risk types to hazard rows (all now 1:1 with dedicated hazard types)
@@ -818,8 +802,7 @@ export default function PreventionSidebar({
     }
   };
 
-  const handleGeocode = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleGeocode = async () => {
     if (!searchQuery.trim()) return;
     setSearchLoading(true);
     try {
@@ -843,492 +826,407 @@ export default function PreventionSidebar({
   };
 
   return (
-    <div className="absolute top-4 left-4 z-10 w-[27rem] flex flex-col gap-4 max-h-[calc(100vh-2rem)] overflow-y-auto">
-      <Card className="shadow-2xl border-0 bg-white/90 backdrop-blur-xl supports-[backdrop-filter]:bg-white/70 rounded-2xl overflow-hidden shrink-0">
-        <CardHeader className="pb-4 border-b border-neutral-100 bg-neutral-50/50">
-          <CardTitle className="text-2xl font-black tracking-tight flex items-center gap-2 text-neutral-800">
-            <ShieldCheck className="w-7 h-7 text-emerald-500" />
-            Aegis Prevent
-          </CardTitle>
-          <CardDescription className="text-neutral-500 font-semibold">
-            Multi-hazard climate risk analysis — toggle any threat, analyze independently
-          </CardDescription>
-        </CardHeader>
-
-        <CardContent className="pt-4 space-y-4">
-          {/* Geocoding */}
-          <form onSubmit={handleGeocode} className="space-y-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="audit-loc" className="font-bold text-neutral-700">Target Location</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="audit-loc"
-                  placeholder="e.g. San Francisco, CA"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="bg-white border-neutral-200 focus-visible:ring-emerald-500 rounded-xl flex-grow font-semibold"
-                />
-                <Button
-                  type="submit"
-                  disabled={searchLoading}
-                  className="bg-neutral-800 hover:bg-neutral-900 text-white font-bold rounded-xl px-4 shrink-0"
-                >
-                  {searchLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Set Target"}
-                </Button>
-              </div>
+    /* The docked column in page.tsx IS the panel, so this fills it directly.
+       No Card wrapper — that would draw a second border inside the sidebar. */
+    <Layout
+      header={
+            <div className="sidebar-header">
+              <VStack gap={0.5}>
+                <HStack gap={2} vAlign="center">
+                  <ShieldCheck className="w-7 h-7" style={{ color: "#c1121f" }} />
+                  <span className="sidebar-header-title" style={{ color: "#fdf0d5", fontSize: "1.25rem", fontWeight: 700 }}>Aegis Prevent</span>
+                </HStack>
+                <span className="sidebar-header-subtitle" style={{ color: "#669bbc", fontSize: "0.75rem" }}>
+                  Multi-hazard climate risk analysis — toggle any threat, analyze independently
+                </span>
+              </VStack>
             </div>
-          </form>
-
-          {/* Weather Risk Analysis — shown once hazardCenter is set */}
-          {(weatherLoading || weatherRisk || weatherError) && (
-            <div className="rounded-xl border border-neutral-800 bg-neutral-900 text-white overflow-hidden">
-              <div className="px-3.5 py-2.5 border-b border-neutral-800 flex items-center justify-between">
-                <h4 className="text-[10px] font-black uppercase tracking-wider text-neutral-300 flex items-center gap-1.5">
-                  <CloudRain className="w-3.5 h-3.5 text-sky-400" />
-                  Climate Risk Analysis
-                  {weatherRisk && (
-                    <span className="text-[9px] font-semibold text-neutral-500 normal-case tracking-normal">
-                      · {weatherRisk.historical.yearsAnalyzed}yr archive
-                    </span>
-                  )}
-                </h4>
-                {weatherLoading && <Loader2 className="w-3.5 h-3.5 animate-spin text-sky-400" />}
-              </div>
-
-              {weatherLoading ? (
-                <div className="px-3.5 py-5 flex flex-col items-center gap-2 text-neutral-400">
-                  <Loader2 className="w-5 h-5 animate-spin text-sky-400" />
-                  <span className="text-[11px] font-bold animate-pulse">
-                    Fetching {cityName || "location"} climate archive…
-                  </span>
-                  <span className="text-[10px] text-neutral-500 text-center">
-                    Pulling 10 years of Open-Meteo weather data
-                  </span>
-                </div>
-              ) : weatherError ? (
-                <div className="px-3.5 py-4 text-[11px] text-neutral-500 italic text-center">
-                  Climate data unavailable for this location.
-                </div>
-              ) : weatherRisk ? (
-                <div className="p-3.5 space-y-3">
-                  {/* Detected risk cards — click to instantly toggle + analyze that hazard */}
-                  {weatherRisk.risks.length === 0 ? (
-                    <p className="text-[11px] text-neutral-400 italic">No statistically significant climate risks detected.</p>
-                  ) : (
-                    <div className="space-y-2">
-                      <p className="text-[9px] font-black text-neutral-500 uppercase tracking-wider">
-                        Detected Disaster Risks · click to analyze
-                      </p>
-                      {weatherRisk.risks.map((risk, i) => (
-                        <button
-                          key={i}
-                          type="button"
-                          onClick={() => {
-                            const mapped = RISK_TO_INCIDENT[risk.type];
-                            if (mapped) analyzeHazard(mapped);
-                          }}
-                          className={`w-full p-2.5 rounded-xl border text-left transition-all hover:brightness-125 ${CONFIDENCE_STYLES[risk.confidence] || "border-neutral-700 text-neutral-400"}`}
-                        >
-                          <div className="flex items-center justify-between gap-2 mb-1">
-                            <div className="flex items-center gap-1.5 font-black text-[11px]">
-                              {HAZARD_META[RISK_TO_INCIDENT[risk.type]]?.icon || <AlertTriangle className="w-3.5 h-3.5" />}
-                              {risk.type}
-                            </div>
-                            <span className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full border ${CONFIDENCE_STYLES[risk.confidence]}`}>
-                              {risk.confidence}
-                            </span>
-                          </div>
-                          <p className="text-[10px] leading-snug opacity-80 font-medium">
-                            {risk.historicalBasis}
-                          </p>
-                          {risk.recentSignal && (
-                            <div className="mt-1.5 flex items-start gap-1 text-[9px] font-bold opacity-90">
-                              <TrendingUp className="w-3 h-3 shrink-0 mt-0.5" />
-                              <span>{risk.recentSignal}</span>
-                            </div>
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Expandable historical vs recent comparison */}
-                  <button
-                    type="button"
-                    onClick={() => setShowHistorical((v) => !v)}
-                    className="w-full flex items-center justify-between text-[10px] font-bold text-neutral-400 hover:text-neutral-200 transition-colors pt-1 border-t border-neutral-800"
-                  >
-                    <span className="flex items-center gap-1.5">
-                      <Clock className="w-3 h-3" />
-                      Historical vs Recent Comparison
-                    </span>
-                    {showHistorical ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                  </button>
-
-                  {showHistorical && (
-                    <div className="space-y-2 pt-1">
-                      <div className="grid grid-cols-2 gap-2 text-[10px]">
-                        <div className="p-2 bg-neutral-950/50 rounded-lg border border-neutral-800 space-y-1.5">
-                          <p className="font-black text-neutral-300 text-[9px] uppercase tracking-wider">
-                            Historical ({weatherRisk.historical.startYear}–{weatherRisk.historical.endYear})
-                          </p>
-                          <div className="space-y-1 text-neutral-400 font-semibold">
-                            <div className="flex justify-between">
-                              <span className="flex items-center gap-1"><CloudRain className="w-2.5 h-2.5 text-blue-400" />Peak rain</span>
-                              <span className="text-white font-bold">{weatherRisk.historical.maxDailyPrecipMm.toFixed(0)}mm</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="flex items-center gap-1"><Thermometer className="w-2.5 h-2.5 text-red-400" />Max temp</span>
-                              <span className="text-white font-bold">{weatherRisk.historical.maxTempC.toFixed(1)}°C</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="flex items-center gap-1"><Thermometer className="w-2.5 h-2.5 text-sky-400" />Min temp</span>
-                              <span className="text-white font-bold">{weatherRisk.historical.minTempC.toFixed(1)}°C</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="flex items-center gap-1"><Zap className="w-2.5 h-2.5 text-yellow-400" />Max wind</span>
-                              <span className="text-white font-bold">{weatherRisk.historical.maxWindKmh.toFixed(0)} km/h</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="flex items-center gap-1"><Snowflake className="w-2.5 h-2.5 text-cyan-400" />Max snow</span>
-                              <span className="text-white font-bold">{weatherRisk.historical.maxDailySnowCm.toFixed(0)}cm</span>
-                            </div>
-                            <div className="flex justify-between border-t border-neutral-800 pt-1 mt-1">
-                              <span className="flex items-center gap-1"><CloudRain className="w-2.5 h-2.5 text-neutral-400" />Avg/year</span>
-                              <span className="text-white font-bold">{weatherRisk.historical.annualAvgPrecipMm.toFixed(0)}mm</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="p-2 bg-neutral-950/50 rounded-lg border border-emerald-900/40 space-y-1.5">
-                          <p className="font-black text-emerald-300 text-[9px] uppercase tracking-wider">
-                            Recent {weatherRisk.recent.days} Days
-                          </p>
-                          <div className="space-y-1 text-neutral-400 font-semibold">
-                            <div className="flex justify-between">
-                              <span className="flex items-center gap-1"><CloudRain className="w-2.5 h-2.5 text-blue-400" />Precip</span>
-                              <span className="text-white font-bold">{weatherRisk.recent.totalPrecipMm.toFixed(0)}mm</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="flex items-center gap-1"><Thermometer className="w-2.5 h-2.5 text-red-400" />Max temp</span>
-                              <span className="text-white font-bold">{weatherRisk.recent.maxTempC.toFixed(1)}°C</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="flex items-center gap-1"><Thermometer className="w-2.5 h-2.5 text-sky-400" />Min temp</span>
-                              <span className="text-white font-bold">{weatherRisk.recent.minTempC.toFixed(1)}°C</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="flex items-center gap-1"><Zap className="w-2.5 h-2.5 text-yellow-400" />Max wind</span>
-                              <span className="text-white font-bold">{weatherRisk.recent.maxWindKmh.toFixed(0)} km/h</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="flex items-center gap-1"><Snowflake className="w-2.5 h-2.5 text-cyan-400" />Snow</span>
-                              <span className="text-white font-bold">{weatherRisk.recent.totalSnowCm.toFixed(0)}cm</span>
-                            </div>
-                            <div className="flex justify-between border-t border-neutral-800 pt-1 mt-1">
-                              <span className="flex items-center gap-1"><Thermometer className="w-2.5 h-2.5 text-neutral-400" />Avg temp</span>
-                              <span className="text-white font-bold">{weatherRisk.recent.avgTempC.toFixed(1)}°C</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      <p className="text-[9px] text-neutral-600 font-semibold">
-                        Source: Open-Meteo Archive API · {weatherRisk.historical.yearsAnalyzed} year baseline
-                      </p>
-                    </div>
-                  )}
-                </div>
-              ) : null}
-            </div>
-          )}
-
-          {/* 72h forecast — live numerical weather prediction, with lead times */}
-          {(forecastLoading || (forecast?.forecasts?.length ?? 0) > 0) && (
-            <div className="rounded-xl border border-indigo-200 bg-indigo-50/60 overflow-hidden">
-              <div className="px-3.5 py-2.5 border-b border-indigo-200 flex items-center justify-between">
-                <h4 className="text-[10px] font-black uppercase tracking-wider text-indigo-800 flex items-center gap-1.5">
-                  <TrendingUp className="w-3.5 h-3.5" />
-                  72-Hour Forecast
-                  <span className="text-[9px] font-semibold text-indigo-500 normal-case tracking-normal">
-                    · live weather model
-                  </span>
-                </h4>
-                {forecastLoading && <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-500" />}
-              </div>
-
-              {forecastLoading ? (
-                <div className="px-3.5 py-4 text-center text-[11px] font-bold text-indigo-500 animate-pulse">
-                  Computing convective and hydrological outlook…
-                </div>
-              ) : (
-                <div className="p-2.5 space-y-2">
-                  {forecast?.soilMoisture && (
-                    <div className="text-[9px] font-bold text-indigo-700 bg-white/70 rounded-lg px-2 py-1.5 border border-indigo-100">
-                      Soil moisture {forecast.soilMoisture.surface} m³/m³ — {forecast.soilMoisture.interpretation}
-                    </div>
-                  )}
-                  {(forecast?.forecasts || []).map((f: any, i: number) => (
-                    <div key={i} className="bg-white rounded-lg border border-indigo-100 p-2.5">
-                      <div className="flex items-center justify-between gap-2 mb-1">
-                        <span className="text-[11px] font-black text-neutral-800 flex items-center gap-1.5">
-                          {f.hazard}
-                          {f.compound && (
-                            <span className="text-[7px] font-black uppercase bg-purple-100 text-purple-700 border border-purple-200 px-1 py-0.5 rounded-full">
-                              Compound
-                            </span>
-                          )}
-                        </span>
-                        <span
-                          className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded-full border ${
-                            f.confidence === "high"
-                              ? "bg-red-50 border-red-200 text-red-600"
-                              : f.confidence === "medium"
-                              ? "bg-orange-50 border-orange-200 text-orange-600"
-                              : "bg-yellow-50 border-yellow-200 text-yellow-700"
-                          }`}
-                        >
-                          {(f.riskScore * 100).toFixed(0)}% · {f.confidence}
-                        </span>
-                      </div>
-                      {f.leadTimeHours !== null && (
-                        <div className="text-[9px] font-bold text-indigo-600 mb-1">
-                          Onset in ~{f.leadTimeHours}h
-                          {f.peakTimeIso ? ` · peak ${new Date(f.peakTimeIso).toLocaleString([], { weekday: "short", hour: "2-digit" })}` : ""}
-                        </div>
-                      )}
-                      <div className="space-y-0.5">
-                        {(f.drivers || []).map((dr: any, di: number) => (
-                          <div key={di} className="text-[9px] text-neutral-600 leading-snug">
-                            <span className="font-bold text-neutral-700">{dr.label}:</span> {dr.value}
-                            <span className="text-neutral-400"> — {dr.meaning}</span>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="text-[9px] font-semibold text-emerald-700 mt-1.5 pt-1.5 border-t border-neutral-100">
-                        → {f.action}
-                      </div>
-                    </div>
-                  ))}
-                  <p className="text-[8px] text-indigo-400 font-semibold px-1">
-                    Source: {forecast?.model}. Forecast horizon {forecast?.window}.
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Multi-hazard toggle + analyze list */}
-          <div className="space-y-2">
-            <Label className="font-bold text-neutral-700 flex items-center justify-between">
-              <span>All Hazards — Toggle & Analyze</span>
-              <span className="text-[9px] font-bold text-neutral-400 normal-case">{visibleHazards.size} active</span>
-            </Label>
-            <p className="text-[9px] text-neutral-400 font-medium leading-snug">
-              Unpredictable events (spills, radiation, earthquakes) are handled in Aegis Route for response, not here.
-            </p>
-            <div className="space-y-1.5 max-h-[380px] overflow-y-auto pr-1">
-              {HAZARD_TYPES.map((type) => {
-                const analysis = hazardAnalyses[type];
-                const isVisible = visibleHazards.has(type);
-                const isExpanded = expandedHazard === type;
-                const meta = HAZARD_META[type];
-                return (
-                  <div key={type} className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
-                    <div className="flex items-center gap-2 p-2.5">
-                      <Switch checked={isVisible} onCheckedChange={() => toggleVisibility(type)} disabled={!analysis?.analyzed} />
-                      <span className={meta.color}>{meta.icon}</span>
-                      <div className="flex-1 min-w-0 flex items-center gap-1.5">
-                        <span className="text-xs font-bold text-neutral-700 truncate">{type}</span>
-                      </div>
-
-                      {analysis?.loading ? (
-                        <Loader2 className="w-4 h-4 animate-spin text-emerald-500 shrink-0" />
-                      ) : (
-                        <Button
-                          type="button"
-                          size="sm"
-                          onClick={() => analyzeHazard(type)}
-                          disabled={!hazardCenter}
-                          className="text-[10px] font-bold h-7 px-2.5 rounded-lg bg-neutral-100 hover:bg-emerald-100 text-neutral-700 hover:text-emerald-700 border border-neutral-200 shrink-0"
-                        >
-                          {analysis?.analyzed ? "Re-analyze" : "Analyze"}
-                        </Button>
-                      )}
-
-                      {analysis?.analyzed && (
-                        <button
-                          type="button"
-                          onClick={() => setExpandedHazard(isExpanded ? null : type)}
-                          className="p-1 text-neutral-400 hover:text-neutral-700 shrink-0"
-                        >
-                          {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                        </button>
-                      )}
-                    </div>
-
-                    {analysis?.error && (
-                      <div className="px-2.5 pb-2 text-[10px] text-red-500 font-semibold">{analysis.error}</div>
-                    )}
-
-                    {isExpanded && analysis?.analyzed && (
-                      <div className="p-3 border-t border-neutral-100 bg-neutral-50 space-y-3">
-                        {analysis.zoneSource && (
-                          <div className="text-[10px] font-bold flex items-center gap-1.5">
-                            {analysis.zoneSource === "polygon" ? (
-                              <span className="text-emerald-600">
-                                ▨ {analysis.polygons.length} real map polygons (OSM geometry + elevation + weather)
-                              </span>
-                            ) : (
-                              <span className="text-neutral-500">
-                                ○ {analysis.zones.length} AI-estimated zones (no physical model for this hazard)
-                              </span>
-                            )}
-                          </div>
-                        )}
-
-                        {analysis.origin && (
-                          <div className="flex items-center gap-1.5 text-[10px] font-bold text-neutral-500">
-                            <MapPin className="w-3 h-3" />
-                            Origin: [{analysis.origin[0].toFixed(3)}, {analysis.origin[1].toFixed(3)}]
-                            {analysis.path && (
-                              <span className="flex items-center gap-1 text-indigo-600 ml-1">
-                                <Navigation2 className="w-3 h-3" /> spread path shown on map
-                              </span>
-                            )}
-                          </div>
-                        )}
-
-                        {analysis.metrics && (
-                          <div className="grid grid-cols-3 gap-1.5">
-                            <div className="p-1.5 bg-white rounded-lg border border-neutral-200 text-center">
-                              <span className="text-[7px] font-bold text-neutral-400 uppercase block">Infra Risk</span>
-                              <span className="text-sm font-black text-rose-500">{analysis.metrics.infrastructure}%</span>
-                            </div>
-                            <div className="p-1.5 bg-white rounded-lg border border-neutral-200 text-center">
-                              <span className="text-[7px] font-bold text-neutral-400 uppercase block">Residential</span>
-                              <span className="text-sm font-black text-amber-500">{analysis.metrics.residential}%</span>
-                            </div>
-                            <div className="p-1.5 bg-white rounded-lg border border-neutral-200 text-center">
-                              <span className="text-[7px] font-bold text-neutral-400 uppercase block">Evac Risk</span>
-                              <span className="text-sm font-black text-blue-500">{analysis.metrics.evacuationReadiness}%</span>
-                            </div>
-                          </div>
-                        )}
-
-                        {analysis.checklist.length > 0 && (
-                          <div className="space-y-1">
-                            {analysis.checklist.map((item, idx) => (
-                              <div key={idx} className="text-[10px] leading-tight text-neutral-700 flex items-start gap-1.5 font-medium">
-                                <CheckCircle2 className="w-3 h-3 text-emerald-500 shrink-0 mt-0.5" />
-                                <span>{item}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        {analysis.strategyMarkdown && (
-                          <div className="text-[10px] leading-relaxed text-neutral-600 font-medium border-t border-neutral-200 pt-2 max-h-[160px] overflow-y-auto whitespace-pre-line">
-                            {analysis.strategyMarkdown.replace(/^#+\s*/gm, "").replace(/^[-*]\s*/gm, "• ")}
-                          </div>
-                        )}
-
-                        <div className="flex gap-1.5 pt-1 border-t border-neutral-200 mt-1">
-                          {onSendToEvacuation && hazardCenter && (
-                            <Button
-                              type="button"
-                              onClick={() => {
-                                const radiusM = estimateImpactRadiusM(hazardCenter, analysis);
-                                onSendToEvacuation(type, hazardCenter, radiusM);
-                              }}
-                              className="flex-1 text-[11px] font-bold h-9 rounded-lg bg-red-600 hover:bg-red-700 text-white flex items-center justify-center gap-1.5"
-                            >
-                              <Navigation2 className="w-3.5 h-3.5" />
-                              Route to Safety
-                            </Button>
-                          )}
-                          <Button
-                            type="button"
-                            onClick={() => handlePublishAlert(type)}
-                            disabled={publishStatus[type] === "loading"}
-                            className={`flex-1 text-[11px] font-bold h-9 rounded-lg flex items-center justify-center gap-1.5 ${
-                              publishStatus[type] === "done"
-                                ? "bg-emerald-600 hover:bg-emerald-700 text-white"
-                                : publishStatus[type] === "error"
-                                ? "bg-red-100 hover:bg-red-200 text-red-700 border border-red-200"
-                                : "bg-neutral-800 hover:bg-neutral-900 text-white"
-                            }`}
-                          >
-                            {publishStatus[type] === "loading" ? (
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            ) : publishStatus[type] === "done" ? (
-                              <CheckCircle2 className="w-3.5 h-3.5" />
-                            ) : (
-                              <Radio className="w-3.5 h-3.5" />
-                            )}
-                            {publishStatus[type] === "done"
-                              ? "Published to mobile"
-                              : publishStatus[type] === "error"
-                              ? "Failed — retry"
-                              : "Publish Alert"}
-                          </Button>
-                        </div>
-                      </div>
-                    )}
+          }
+          content={
+            <LayoutContent padding={4}>
+              <VStack gap={4}>
+                {/* Geocoding */}
+                <HStack gap={2}>
+                  <div className="flex-1">
+                    <TextInput label="Target location" placeholder="e.g. San Francisco, CA" value={searchQuery} onChange={setSearchQuery} />
                   </div>
-                );
-              })}
-            </div>
-          </div>
+                  <Button label="Set target" variant="secondary" isLoading={searchLoading} clickAction={handleGeocode} />
+                </HStack>
 
-          {/* Export analysed zone coordinates as a markdown report */}
-          {analyzedCount > 0 && (
-            <Button
-              type="button"
-              onClick={handleExportMarkdown}
-              className="w-full py-5 bg-neutral-800 hover:bg-neutral-900 text-white font-bold rounded-xl flex items-center justify-center gap-2"
-            >
-              <Download className="w-4 h-4" />
-              Export Report (.md) — {analyzedCount} hazard{analyzedCount === 1 ? "" : "s"}
-            </Button>
-          )}
+                {/* Weather Risk Analysis — shown once hazardCenter is set */}
+                {(weatherLoading || weatherRisk || weatherError) && (
+                  <div className="climate-card" style={{ background: "#001d2e", border: "1px solid #669bbc33", borderRadius: "0.625rem", padding: "0.75rem" }}>
+                    <VStack gap={3}>
+                      <HStack hAlign="between" vAlign="center">
+                        <HStack gap={1.5} vAlign="center">
+                          <CloudRain className="w-3.5 h-3.5" style={{ color: "#669bbc" }} />
+                          <span style={{ color: "#669bbc", fontWeight: 600, fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                            Climate risk analysis{weatherRisk ? ` · ${weatherRisk.historical.yearsAnalyzed}yr archive` : ""}
+                          </span>
+                        </HStack>
+                        {weatherLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: "#669bbc" }} />}
+                      </HStack>
 
-          {/* Temperature Heatmap Toggle */}
-          {hazardCenter && setShowTemperatureHeatmap && (
-            <div className="flex items-center justify-between p-3 bg-neutral-50 rounded-xl border border-neutral-100">
-              <div className="flex items-center gap-2.5">
-                <div className={`p-1.5 rounded-lg transition-colors ${showTemperatureHeatmap ? 'bg-orange-100 text-orange-600' : 'bg-neutral-200/60 text-neutral-400'}`}>
-                  <Thermometer className="w-4 h-4" />
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-xs font-bold text-neutral-700 flex items-center gap-1.5">
-                    Temperature Heatmap
-                    {temperatureHeatmapLoading && (
-                      <Loader2 className="w-3 h-3 animate-spin text-orange-500" />
-                    )}
-                  </span>
-                  <span className="text-[10px] font-semibold text-neutral-400">
-                    {temperatureHeatmapLoading
-                      ? "Fetching temperature data..."
-                      : showTemperatureHeatmap
-                      ? "Live thermal overlay active"
-                      : "Show thermal gradient on map"}
-                  </span>
-                </div>
-              </div>
-              <Switch
-                checked={showTemperatureHeatmap}
-                onCheckedChange={() => setShowTemperatureHeatmap(!showTemperatureHeatmap)}
-              />
-            </div>
-          )}
+                      {weatherLoading ? (
+                        <VStack gap={2} hAlign="center" style={{ padding: "1rem 0" }}>
+                          <Loader2 className="w-5 h-5 animate-spin text-blue-vivid" />
+                          <Text type="supporting" weight="bold">Fetching {cityName || "location"} climate archive…</Text>
+                          <Text type="supporting" size="3xs" color="secondary">Pulling 10 years of Open-Meteo weather data</Text>
+                        </VStack>
+                      ) : weatherError ? (
+                        <Text type="supporting" color="secondary" justify="center" display="block">
+                          Climate data unavailable for this location.
+                        </Text>
+                      ) : weatherRisk ? (
+                        <VStack gap={3}>
+                          {weatherRisk.risks.length === 0 ? (
+                            <Text type="supporting" color="secondary">No statistically significant climate risks detected.</Text>
+                          ) : (
+                            <VStack gap={2}>
+                              <Text type="supporting" size="3xs" weight="bold">Detected disaster risks · click to analyze</Text>
+                              {weatherRisk.risks.map((risk, i) => (
+                                <div className="hazard-item" style={{ borderRadius: "0.5rem", padding: "0.5rem", borderLeft: `3px solid ${risk.confidence === 'high' ? '#c1121f' : risk.confidence === 'medium' ? '#780000' : '#669bbc'}` }}>
+                                  <Item
+                                    key={i}
+                                    label={risk.type}
+                                    onClick={() => {
+                                      const mapped = RISK_TO_INCIDENT[risk.type];
+                                      if (mapped) analyzeHazard(mapped);
+                                    }}
+                                    startContent={HAZARD_META[RISK_TO_INCIDENT[risk.type]]?.icon || <AlertTriangle className="w-4 h-4" />}
+                                    endContent={<Badge variant={CONFIDENCE_BADGE[risk.confidence as ConfidenceLevel] || "neutral"} label={risk.confidence} />}
+                                    description={
+                                      <VStack gap={0.5}>
+                                        <Text type="supporting" size="3xs">{risk.historicalBasis}</Text>
+                                        {risk.recentSignal && (
+                                          <HStack gap={1} vAlign="center">
+                                            <TrendingUp className="w-3 h-3" style={{ color: "#669bbc" }} />
+                                            <Text type="supporting" size="3xs" weight="bold">{risk.recentSignal}</Text>
+                                          </HStack>
+                                        )}
+                                      </VStack>
+                                    }
+                                  />
+                                </div>
+                              ))}
+                            </VStack>
+                          )}
 
-          {!hazardCenter && (
-            <p className="text-[11px] text-neutral-400 italic text-center py-2">
-              Set a target location above to enable hazard analysis.
-            </p>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+                          <Collapsible
+                            isOpen={showHistorical}
+                            onOpenChange={setShowHistorical}
+                            trigger={
+                              <HStack hAlign="between" vAlign="center" style={{ width: "100%" }}>
+                                <HStack gap={1.5} vAlign="center">
+                                  <Clock className="w-3 h-3" style={{ color: "#669bbc" }} />
+                                  <Text type="supporting" weight="bold" style={{ color: "#fdf0d5" }}>Historical vs recent comparison</Text>
+                                </HStack>
+                                {showHistorical ? <ChevronUp className="w-3.5 h-3.5" style={{ color: "#669bbc" }} /> : <ChevronDown className="w-3.5 h-3.5" style={{ color: "#669bbc" }} />}
+                              </HStack>
+                            }
+                          >
+                            <VStack gap={2}>
+                              <HStack gap={2}>
+                                <div className="climate-card" style={{ background: "#002438", border: "1px solid #669bbc33", borderRadius: "0.625rem", width: "100%", padding: "0.5rem" }}>
+                                  <MetadataList columns="single">
+                                    <MetadataListItem label={`Historical (${weatherRisk.historical.startYear}–${weatherRisk.historical.endYear})`} style={{ color: "#669bbc" }}>{""}</MetadataListItem>
+                                    <MetadataListItem label="Peak rain" style={{ color: "#fdf0d5" }}>{weatherRisk.historical.maxDailyPrecipMm.toFixed(0)}mm</MetadataListItem>
+                                    <MetadataListItem label="Max temp" style={{ color: "#fdf0d5" }}>{weatherRisk.historical.maxTempC.toFixed(1)}°C</MetadataListItem>
+                                    <MetadataListItem label="Min temp" style={{ color: "#fdf0d5" }}>{weatherRisk.historical.minTempC.toFixed(1)}°C</MetadataListItem>
+                                    <MetadataListItem label="Max wind" style={{ color: "#fdf0d5" }}>{weatherRisk.historical.maxWindKmh.toFixed(0)} km/h</MetadataListItem>
+                                    <MetadataListItem label="Max snow" style={{ color: "#fdf0d5" }}>{weatherRisk.historical.maxDailySnowCm.toFixed(0)}cm</MetadataListItem>
+                                    <MetadataListItem label="Avg/year" style={{ color: "#fdf0d5" }}>{weatherRisk.historical.annualAvgPrecipMm.toFixed(0)}mm</MetadataListItem>
+                                  </MetadataList>
+                                </div>
+                                <div className="climate-card" style={{ background: "#001d2e", border: "1px solid #c1121f33", borderRadius: "0.625rem", width: "100%", padding: "0.5rem" }}>
+                                  <MetadataList columns="single">
+                                    <MetadataListItem label={`Recent ${weatherRisk.recent.days} days`} style={{ color: "#c1121f" }}>{""}</MetadataListItem>
+                                    <MetadataListItem label="Precip" style={{ color: "#fdf0d5" }}>{weatherRisk.recent.totalPrecipMm.toFixed(0)}mm</MetadataListItem>
+                                    <MetadataListItem label="Max temp" style={{ color: "#fdf0d5" }}>{weatherRisk.recent.maxTempC.toFixed(1)}°C</MetadataListItem>
+                                    <MetadataListItem label="Min temp" style={{ color: "#fdf0d5" }}>{weatherRisk.recent.minTempC.toFixed(1)}°C</MetadataListItem>
+                                    <MetadataListItem label="Max wind" style={{ color: "#fdf0d5" }}>{weatherRisk.recent.maxWindKmh.toFixed(0)} km/h</MetadataListItem>
+                                    <MetadataListItem label="Snow" style={{ color: "#fdf0d5" }}>{weatherRisk.recent.totalSnowCm.toFixed(0)}cm</MetadataListItem>
+                                    <MetadataListItem label="Avg temp" style={{ color: "#fdf0d5" }}>{weatherRisk.recent.avgTempC.toFixed(1)}°C</MetadataListItem>
+                                  </MetadataList>
+                                </div>
+                              </HStack>
+                              <Text type="supporting" size="3xs" style={{ color: "#669bbc" }}>
+                                Source: Open-Meteo Archive API · {weatherRisk.historical.yearsAnalyzed} year baseline
+                              </Text>
+                            </VStack>
+                          </Collapsible>
+                        </VStack>
+                      ) : null}
+                    </VStack>
+                  </div>
+                )}
+
+                {/* 72h forecast — live numerical weather prediction, with lead times */}
+                {(forecastLoading || (forecast?.forecasts?.length ?? 0) > 0) && (
+                  <div className="climate-card" style={{ background: "#001d2e", border: "1px solid #669bbc4D", borderRadius: "0.625rem", padding: "0.75rem" }}>
+                    <VStack gap={3}>
+                      <HStack hAlign="between" vAlign="center">
+                        <HStack gap={1.5} vAlign="center">
+                          <TrendingUp className="w-3.5 h-3.5" style={{ color: "#c1121f" }} />
+                          <span style={{ color: "#669bbc", fontWeight: 600, fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.06em" }}>72-hour forecast · live weather model</span>
+                        </HStack>
+                        {forecastLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: "#669bbc" }} />}
+                      </HStack>
+
+                      {forecastLoading ? (
+                        <Text type="supporting" weight="bold" justify="center" display="block" style={{ color: "#fdf0d5" }}>
+                          Computing convective and hydrological outlook…
+                        </Text>
+                      ) : (
+                        <VStack gap={2}>
+                          {forecast?.soilMoisture && (
+                            <Text type="supporting" size="3xs" weight="bold" style={{ color: "#669bbc" }}>
+                              Soil moisture {forecast.soilMoisture.surface} m³/m³ — {forecast.soilMoisture.interpretation}
+                            </Text>
+                          )}
+                          {(forecast?.forecasts || []).map((f: any, i: number) => (
+                            <Card key={i} variant="default" padding={3} style={{ background: "#002438", border: "1px solid #669bbc33" }}>
+                              <VStack gap={1}>
+                                <HStack hAlign="between" vAlign="center">
+                                  <HStack gap={1.5} vAlign="center">
+                                    <Text type="supporting" weight="bold" style={{ color: "#fdf0d5" }}>{f.hazard}</Text>
+                                    {f.compound && <Badge variant="purple" label="Compound" />}
+                                  </HStack>
+                                  <Badge variant={CONFIDENCE_BADGE[f.confidence as ConfidenceLevel] || "neutral"} label={`${(f.riskScore * 100).toFixed(0)}% · ${f.confidence}`} />
+                                </HStack>
+                                {f.leadTimeHours !== null && (
+                                  <Text type="supporting" size="3xs" weight="bold" style={{ color: "#c1121f" }}>
+                                    Onset in ~{f.leadTimeHours}h
+                                    {f.peakTimeIso ? ` · peak ${new Date(f.peakTimeIso).toLocaleString([], { weekday: "short", hour: "2-digit" })}` : ""}
+                                  </Text>
+                                )}
+                                <VStack gap={0.5}>
+                                  {(f.drivers || []).map((dr: any, di: number) => (
+                                    <Text key={di} type="supporting" size="3xs" style={{ color: "#aab9c7" }}>
+                                      <Text type="inherit" weight="bold" style={{ color: "#fdf0d5" }}>{dr.label}:</Text> {dr.value} — {dr.meaning}
+                                    </Text>
+                                  ))}
+                                </VStack>
+                                <div className="divider-palette" />
+                                <Text type="supporting" size="3xs" weight="semibold" style={{ color: "#c1121f" }}>→ {f.action}</Text>
+                              </VStack>
+                            </Card>
+                          ))}
+                          <Text type="supporting" size="4xs" style={{ color: "#669bbc" }}>Source: {forecast?.model}. Forecast horizon {forecast?.window}.</Text>
+                        </VStack>
+                      )}
+                    </VStack>
+                  </div>
+                )}
+
+                {/* Multi-hazard toggle + analyze list */}
+                <VStack gap={2}>
+                  <HStack hAlign="between">
+                    <div className="section-accent">
+                      <Text type="body" weight="bold" style={{ color: "#fdf0d5" }}>All hazards — toggle &amp; analyze</Text>
+                    </div>
+                    <Text type="supporting" size="3xs" style={{ color: "#669bbc" }}>{visibleHazards.size} active</Text>
+                  </HStack>
+                  <Text type="supporting" size="3xs" style={{ color: "#669bbc" }}>
+                    Unpredictable events (spills, radiation, earthquakes) are handled in Aegis Route for response, not here.
+                  </Text>
+                  <div className="max-h-[380px] overflow-y-auto">
+                    <VStack gap={1.5}>
+                      {HAZARD_TYPES.map((type) => {
+                        const analysis = hazardAnalyses[type];
+                        const isVisible = visibleHazards.has(type);
+                        const isExpanded = expandedHazard === type;
+                        const meta = HAZARD_META[type];
+                        return (
+                          <Card key={type} variant="default" padding={0} style={{ background: "#002438", border: `1px solid ${isVisible ? '#c1121f4D' : '#669bbc1A'}`, borderLeft: isVisible ? '3px solid #c1121f' : '3px solid transparent' }}>
+                            <div className="p-2.5">
+                              <HStack gap={2} vAlign="center">
+                                <Switch label={`Show ${type} on map`} isLabelHidden value={isVisible} onChange={() => toggleVisibility(type)} isDisabled={!analysis?.analyzed} />
+                                {meta.icon}
+                                <div className="flex-1 min-w-0">
+                                  <Text type="body" weight="bold" maxLines={1} style={{ color: "#fdf0d5" }}>{type}</Text>
+                                </div>
+
+                                {analysis?.loading ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" style={{ color: "#c1121f" }} />
+                                ) : (
+                                  <Button label={analysis?.analyzed ? "Re-analyze" : "Analyze"} size="sm" variant="secondary" onClick={() => analyzeHazard(type)} isDisabled={!hazardCenter} />
+                                )}
+
+                                {analysis?.analyzed && (
+                                  <Button
+                                    label={isExpanded ? "Collapse" : "Expand"}
+                                    isIconOnly
+                                    icon={isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setExpandedHazard(isExpanded ? null : type)}
+                                  />
+                                )}
+                              </HStack>
+                            </div>
+
+                            {analysis?.error && (
+                              <div className="px-2.5 pb-2">
+                                <Text type="supporting" size="3xs" color="accent">{analysis.error}</Text>
+                              </div>
+                            )}
+
+                            {isExpanded && analysis?.analyzed && (
+                              <div className="p-3 pt-0">
+                                <Divider />
+                                <VStack gap={3} style={{ paddingTop: "0.75rem" }}>
+                                  {analysis.zoneSource && (
+                                    <Badge
+                                      variant={analysis.zoneSource === "polygon" ? "green" : "neutral"}
+                                      label={
+                                        analysis.zoneSource === "polygon"
+                                          ? `${analysis.polygons.length} real map polygons (OSM geometry + elevation + weather)`
+                                          : `${analysis.zones.length} AI-estimated zones (no physical model for this hazard)`
+                                      }
+                                    />
+                                  )}
+
+                                  {analysis.origin && (
+                                    <HStack gap={1.5} vAlign="center">
+                                      <MapPin className="w-3 h-3" />
+                                      <Text type="supporting" size="3xs" weight="bold">
+                                        Origin: [{analysis.origin[0].toFixed(3)}, {analysis.origin[1].toFixed(3)}]
+                                      </Text>
+                                      {analysis.path && (
+                                        <HStack gap={1} vAlign="center">
+                                          <Navigation2 className="w-3 h-3 text-purple-vivid" />
+                                          <Text type="supporting" size="3xs" color="accent">spread path shown on map</Text>
+                                        </HStack>
+                                      )}
+                                    </HStack>
+                                  )}
+
+                                  {analysis.metrics && (
+                                    <HStack gap={1.5}>
+                                      <Card variant="red" padding={1.5} width="100%">
+                                        <VStack gap={0} hAlign="center">
+                                          <Text type="supporting" size="4xs" weight="bold">Infra risk</Text>
+                                          <Text type="body" weight="bold">{analysis.metrics.infrastructure}%</Text>
+                                        </VStack>
+                                      </Card>
+                                      <Card variant="orange" padding={1.5} width="100%">
+                                        <VStack gap={0} hAlign="center">
+                                          <Text type="supporting" size="4xs" weight="bold">Residential</Text>
+                                          <Text type="body" weight="bold">{analysis.metrics.residential}%</Text>
+                                        </VStack>
+                                      </Card>
+                                      <Card variant="blue" padding={1.5} width="100%">
+                                        <VStack gap={0} hAlign="center">
+                                          <Text type="supporting" size="4xs" weight="bold">Evac risk</Text>
+                                          <Text type="body" weight="bold">{analysis.metrics.evacuationReadiness}%</Text>
+                                        </VStack>
+                                      </Card>
+                                    </HStack>
+                                  )}
+
+                                  {analysis.checklist.length > 0 && (
+                                    <VStack gap={1}>
+                                      {analysis.checklist.map((item, idx) => (
+                                        <HStack key={idx} gap={1.5}>
+                                          <CheckCircle2 className="w-3 h-3 text-green-vivid shrink-0 mt-0.5" />
+                                          <Text type="supporting" size="3xs">{item}</Text>
+                                        </HStack>
+                                      ))}
+                                    </VStack>
+                                  )}
+
+                                  {analysis.strategyMarkdown && (
+                                    <div className="max-h-[160px] overflow-y-auto">
+                                      <Text type="supporting" size="3xs" display="block">
+                                        {analysis.strategyMarkdown.replace(/^#+\s*/gm, "").replace(/^[-*]\s*/gm, "• ")}
+                                      </Text>
+                                    </div>
+                                  )}
+
+                                  <HStack gap={1.5}>
+                                    {onSendToEvacuation && hazardCenter && (
+                                      <Button
+                                        label="Route to safety"
+                                        variant="destructive"
+                                        size="sm"
+                                        icon={<Navigation2 className="w-3.5 h-3.5" />}
+                                        onClick={() => {
+                                          const radiusM = estimateImpactRadiusM(hazardCenter, analysis);
+                                          onSendToEvacuation(type, hazardCenter, radiusM);
+                                        }}
+                                        width="100%"
+                                      />
+                                    )}
+                                    <Button
+                                      label={publishStatus[type] === "done" ? "Published to mobile" : publishStatus[type] === "error" ? "Failed — retry" : "Publish alert"}
+                                      variant={publishStatus[type] === "error" ? "destructive" : "secondary"}
+                                      size="sm"
+                                      icon={publishStatus[type] === "done" ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Radio className="w-3.5 h-3.5" />}
+                                      isLoading={publishStatus[type] === "loading"}
+                                      onClick={() => handlePublishAlert(type)}
+                                      width="100%"
+                                    />
+                                  </HStack>
+                                </VStack>
+                              </div>
+                            )}
+                          </Card>
+                        );
+                      })}
+                    </VStack>
+                  </div>
+                </VStack>
+
+                {/* Export analysed zone coordinates as a markdown report */}
+                {analyzedCount > 0 && (
+                  <Button
+                    label={`Export report (.md) — ${analyzedCount} hazard${analyzedCount === 1 ? "" : "s"}`}
+                    variant="secondary"
+                    icon={<Download className="w-4 h-4" />}
+                    onClick={handleExportMarkdown}
+                    width="100%"
+                  />
+                )}
+
+                {/* Temperature Heatmap Toggle */}
+                {hazardCenter && setShowTemperatureHeatmap && (
+                  <div className="climate-card" style={{ background: "#002438", border: `1px solid ${showTemperatureHeatmap ? '#c1121f4D' : '#669bbc33'}`, borderRadius: "0.625rem", padding: "0.75rem" }}>
+                    <HStack hAlign="between" vAlign="center">
+                      <HStack gap={2} vAlign="center">
+                        <Thermometer className="w-4 h-4" style={{ color: showTemperatureHeatmap ? "#c1121f" : "#4a6573" }} />
+                        <VStack gap={0}>
+                          <HStack gap={1.5} vAlign="center">
+                            <Text type="body" weight="bold" style={{ color: "#fdf0d5" }}>Temperature heatmap</Text>
+                            {temperatureHeatmapLoading && <Loader2 className="w-3 h-3 animate-spin" style={{ color: "#c1121f" }} />}
+                          </HStack>
+                          <Text type="supporting" size="3xs" style={{ color: "#669bbc" }}>
+                            {temperatureHeatmapLoading
+                              ? "Fetching temperature data..."
+                              : showTemperatureHeatmap
+                              ? "Live thermal overlay active"
+                              : "Show thermal gradient on map"}
+                          </Text>
+                        </VStack>
+                      </HStack>
+                      <Switch
+                        label="Temperature heatmap"
+                        isLabelHidden
+                        value={showTemperatureHeatmap}
+                        onChange={() => setShowTemperatureHeatmap(!showTemperatureHeatmap)}
+                      />
+                    </HStack>
+                  </div>
+                )}
+
+                {!hazardCenter && (
+                  <Text type="supporting" color="secondary" justify="center" display="block">
+                    Set a target location above to enable hazard analysis.
+                  </Text>
+                )}
+              </VStack>
+            </LayoutContent>
+          }
+        />
   );
 }

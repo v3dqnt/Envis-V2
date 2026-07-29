@@ -1,25 +1,33 @@
 "use client";
 
 import React, { useState, useRef } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  Navigation, 
-  AlertTriangle, 
-  ShieldAlert, 
-  Navigation2, 
-  MapPin, 
-  Flame, 
-  Waves, 
-  Skull, 
-  Compass, 
-  Sparkles, 
-  Loader2, 
-  CheckCircle2, 
+import { Card } from "@astryxdesign/core/Card";
+import { Layout, LayoutHeader, LayoutContent, LayoutFooter, VStack, HStack } from "@astryxdesign/core/Layout";
+import { Heading } from "@astryxdesign/core/Heading";
+import { Text } from "@astryxdesign/core/Text";
+import { Button } from "@astryxdesign/core/Button";
+import { TextInput } from "@astryxdesign/core/TextInput";
+import { TabList, Tab } from "@astryxdesign/core/TabList";
+import { ToggleButtonGroup, ToggleButton } from "@astryxdesign/core/ToggleButton";
+import { Slider } from "@astryxdesign/core/Slider";
+import { MetadataList, MetadataListItem } from "@astryxdesign/core/MetadataList";
+import { Badge } from "@astryxdesign/core/Badge";
+import { Banner } from "@astryxdesign/core/Banner";
+import { Item } from "@astryxdesign/core/Item";
+import { Dialog, DialogHeader } from "@astryxdesign/core/Dialog";
+import {
+  Navigation,
+  AlertTriangle,
+  ShieldAlert,
+  Navigation2,
   Target,
+  Flame,
+  Waves,
+  Skull,
+  Compass,
+  Sparkles,
+  Loader2,
+  CheckCircle2,
   Activity,
   Shield,
   Wind,
@@ -28,7 +36,6 @@ import {
   Biohazard,
   Mountain,
   Radio,
-  Send,
   Bell,
   Tornado,
   Sun,
@@ -36,17 +43,9 @@ import {
   ThermometerSnowflake,
   MountainSnow,
   Thermometer,
-  Download
+  Download,
 } from "lucide-react";
 import { ReportIncidentModal } from "@/components/ReportIncidentModal";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 
 interface RoutingSidebarProps {
   hazardCenter: [number, number] | null;
@@ -171,7 +170,7 @@ function createTrafficRouteGeoJSON(
   for (let i = 0; i < coordinates.length - 1; i++) {
     const c1 = coordinates[i];
     const c2 = coordinates[i + 1];
-    
+
     // Midpoint distance calculations
     const midpoint: [number, number] = [
       (c1[0] + c2[0]) / 2,
@@ -235,9 +234,9 @@ function parseTomTomRoute(tomtomData: any, hazardCenter: [number, number] | null
 
     // 1. Live TomTom Traffic Congestion
     if (sections && sections.length > 0) {
-      const trafficSec = sections.find((sec: any) => 
-        sec.sectionType === "traffic" && 
-        i >= sec.startPointIndex && 
+      const trafficSec = sections.find((sec: any) =>
+        sec.sectionType === "traffic" &&
+        i >= sec.startPointIndex &&
         i < sec.endPointIndex
       );
       if (trafficSec) {
@@ -278,7 +277,7 @@ function parseTomTomRoute(tomtomData: any, hazardCenter: [number, number] | null
       let typeLabel = "Traffic Jam";
       if (sec.simpleCategory === "ROAD_WORK") typeLabel = "Road Work";
       else if (sec.simpleCategory === "ROAD_CLOSURE") typeLabel = "Road Closure";
-      
+
       const startPoint = coordinates[sec.startPointIndex];
       return {
         type: sec.simpleCategory || "JAM",
@@ -324,14 +323,14 @@ function parseOSRMRoute(osrmData: any, hazardCenter: [number, number] | null, ha
 // Routing helper that tries TomTom first (for real traffic with alternative calculations), and falls back to OSRM
 async function getRouteData(coords: [number, number][]) {
   const tomtomKey = process.env.NEXT_PUBLIC_TOMTOM_API_KEY || 'fqSazhj2APo816F2cBqqxI0e4GqatpEh';
-  
+
   if (tomtomKey) {
     try {
       // TomTom format: lat,lng:lat,lng...
       const locationsStr = coords.map(c => `${c[1]},${c[0]}`).join(':');
       // Ask TomTom to calculate the fastest route, offering up to 2 alternatives to compare and select the least congested one
       const url = `https://api.tomtom.com/routing/1/calculateRoute/${locationsStr}/json?key=${tomtomKey}&traffic=true&departAt=now&routeType=fastest&maxAlternatives=2&sectionType=traffic`;
-      
+
       console.log(`[TomTom] Requesting route data: ${url}`);
       const res = await fetch(url);
       if (res.ok) {
@@ -353,7 +352,7 @@ async function getRouteData(coords: [number, number][]) {
       console.error(`[TomTom] Request failed, falling back to OSRM:`, err);
     }
   }
-  
+
   // OSRM Fallback
   // OSRM format: lng,lat;lng,lat...
   const osrmCoordsStr = coords.map(c => `${c[0]},${c[1]}`).join(';');
@@ -369,6 +368,27 @@ async function getRouteData(coords: [number, number][]) {
   }
   return { source: "osrm", data };
 }
+
+// Hazard classification grid — icon + Astryx hue token per type
+const HAZARD_OPTIONS: { type: string; icon: React.ReactNode }[] = [
+  { type: "Wildfire", icon: <Flame className="w-4 h-4 text-orange-vivid" /> },
+  { type: "Flooding", icon: <Waves className="w-4 h-4 text-blue-vivid" /> },
+  { type: "Flash Flood", icon: <Waves className="w-4 h-4 text-cyan-vivid" /> },
+  { type: "Toxic Plume", icon: <Skull className="w-4 h-4 text-green-vivid" /> },
+  { type: "Earthquake", icon: <Activity className="w-4 h-4 text-yellow-vivid" /> },
+  { type: "Tornado", icon: <Wind className="w-4 h-4 text-teal-vivid" /> },
+  { type: "Radiation Leak", icon: <Radiation className="w-4 h-4 text-yellow-vivid" /> },
+  { type: "Chemical Spill", icon: <Biohazard className="w-4 h-4 text-yellow-vivid" /> },
+  { type: "Blizzard", icon: <Snowflake className="w-4 h-4 text-cyan-vivid" /> },
+  { type: "Ice Storm", icon: <Snowflake className="w-4 h-4 text-cyan-vivid" /> },
+  { type: "Volcanic Eruption", icon: <Mountain className="w-4 h-4 text-red-vivid" /> },
+  { type: "Tropical Cyclone", icon: <Tornado className="w-4 h-4 text-cyan-vivid" /> },
+  { type: "Heatwave", icon: <Thermometer className="w-4 h-4 text-red-vivid" /> },
+  { type: "Drought", icon: <Sun className="w-4 h-4 text-yellow-vivid" /> },
+  { type: "Extreme Cold", icon: <ThermometerSnowflake className="w-4 h-4 text-blue-vivid" /> },
+  { type: "Thunderstorm", icon: <CloudLightning className="w-4 h-4 text-purple-vivid" /> },
+  { type: "Landslide", icon: <MountainSnow className="w-4 h-4 text-gray-vivid" /> },
+];
 
 export default function RoutingSidebar({
   hazardCenter,
@@ -409,6 +429,7 @@ export default function RoutingSidebar({
   const [hazardSearch, setHazardSearch] = useState("");
   const [routingLoading, setRoutingLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [tab, setTab] = useState("hazard");
 
   const [emergencyFacilities, setEmergencyFacilities] = useState<any[]>([]);
   const [facilitiesLoading, setFacilitiesLoading] = useState<boolean>(false);
@@ -563,10 +584,8 @@ export default function RoutingSidebar({
     return null;
   };
 
-
   // Geocode and place dome at located area
-  const handleLocateHazard = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleLocateHazard = async () => {
     setErrorMessage("");
     if (!hazardSearch.trim()) return;
 
@@ -649,7 +668,7 @@ export default function RoutingSidebar({
             const dNormal = Math.pow(c0 - refLng, 2) + Math.pow(c1 - refLat, 2);
             // Distance squared if [c0, c1] is [lat, lng]
             const dFlipped = Math.pow(c1 - refLng, 2) + Math.pow(c0 - refLat, 2);
-            
+
             if (dFlipped < dNormal) {
               console.log(`[Client Route Fixer] Swapping flipped AI waypoint: [${c0}, ${c1}] -> [${c1}, ${c0}]`);
               return [c1, c0] as [number, number];
@@ -693,8 +712,7 @@ export default function RoutingSidebar({
   };
 
   // Form-triggered entry point: resolve text inputs to coordinates, then hand off to runRoute.
-  const handleRoute = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleRoute = async () => {
     if (!startPoint.trim() || !endPoint.trim()) {
       setErrorMessage("Please supply starting point and destination.");
       return;
@@ -841,715 +859,489 @@ export default function RoutingSidebar({
   const getIncidentIcon = () => {
     switch (incidentType) {
       case "Wildfire":
-        return <Flame className="w-5 h-5 text-orange-500 animate-pulse" />;
+        return <Flame className="w-5 h-5 text-orange-vivid" />;
       case "Flooding":
-        return <Waves className="w-5 h-5 text-blue-500 animate-pulse" />;
+        return <Waves className="w-5 h-5 text-blue-vivid" />;
       case "Chemical Spill":
-        return <Biohazard className="w-5 h-5 text-yellow-500 animate-pulse" />;
+        return <Biohazard className="w-5 h-5 text-yellow-vivid" />;
       case "Toxic Plume":
-        return <Skull className="w-5 h-5 text-green-500 animate-pulse" />;
+        return <Skull className="w-5 h-5 text-green-vivid" />;
       case "Earthquake":
-        return <Activity className="w-5 h-5 text-amber-500 animate-pulse" />;
+        return <Activity className="w-5 h-5 text-yellow-vivid" />;
       case "Tornado":
-        return <Wind className="w-5 h-5 text-teal-500 animate-pulse" />;
+        return <Wind className="w-5 h-5 text-teal-vivid" />;
       case "Radiation Leak":
-        return <Radiation className="w-5 h-5 text-lime-500 animate-pulse" />;
+        return <Radiation className="w-5 h-5 text-yellow-vivid" />;
       case "Blizzard":
-        return <Snowflake className="w-5 h-5 text-sky-400 animate-pulse" />;
+        return <Snowflake className="w-5 h-5 text-cyan-vivid" />;
       case "Volcanic Eruption":
-        return <Mountain className="w-5 h-5 text-rose-600 animate-pulse" />;
+        return <Mountain className="w-5 h-5 text-red-vivid" />;
       case "Tropical Cyclone":
-        return <Tornado className="w-5 h-5 text-cyan-600 animate-pulse" />;
+        return <Tornado className="w-5 h-5 text-cyan-vivid" />;
       case "Heatwave":
-        return <Thermometer className="w-5 h-5 text-red-600 animate-pulse" />;
+        return <Thermometer className="w-5 h-5 text-red-vivid" />;
       case "Drought":
-        return <Sun className="w-5 h-5 text-amber-500 animate-pulse" />;
+        return <Sun className="w-5 h-5 text-yellow-vivid" />;
       case "Extreme Cold":
-        return <ThermometerSnowflake className="w-5 h-5 text-blue-400 animate-pulse" />;
+        return <ThermometerSnowflake className="w-5 h-5 text-blue-vivid" />;
       case "Thunderstorm":
-        return <CloudLightning className="w-5 h-5 text-indigo-500 animate-pulse" />;
+        return <CloudLightning className="w-5 h-5 text-purple-vivid" />;
       case "Landslide":
-        return <MountainSnow className="w-5 h-5 text-stone-600 animate-pulse" />;
+        return <MountainSnow className="w-5 h-5 text-gray-vivid" />;
       default:
-        return <AlertTriangle className="w-5 h-5 text-amber-500 animate-pulse" />;
+        return <AlertTriangle className="w-5 h-5 text-yellow-vivid" />;
     }
   };
 
   return (
-    <div className="absolute top-4 left-4 z-10 w-[26rem] flex flex-col gap-4 max-h-[calc(100vh-2rem)] overflow-y-auto">
-      <Card className="shadow-2xl border-0 bg-white/90 backdrop-blur-xl supports-[backdrop-filter]:bg-white/70 rounded-2xl overflow-hidden shrink-0">
-        <CardHeader className="pb-4 border-b border-neutral-100 bg-neutral-50/50">
-          <CardTitle className="text-2xl font-black tracking-tight flex items-center gap-2 text-neutral-800">
-            <ShieldAlert className="w-7 h-7 text-red-500" />
-            Aegis Route
-          </CardTitle>
-          <CardDescription className="text-neutral-500 font-semibold">
-            AI-powered disaster routing & emergency dome placement
-          </CardDescription>
-        </CardHeader>
+    /* The docked column in page.tsx IS the panel, so this fills it directly.
+       No Card wrapper — that would draw a second border inside the sidebar. */
+    <>
+      <Layout
+        header={
+          <div className="sidebar-header">
+            <VStack gap={0.5}>
+              <HStack gap={2} vAlign="center">
+                <ShieldAlert className="w-7 h-7" style={{ color: "#c1121f" }} />
+                <span className="sidebar-header-title" style={{ color: "#fdf0d5", fontSize: "1.25rem", fontWeight: 700 }}>Aegis Route</span>
+              </HStack>
+              <span className="sidebar-header-subtitle" style={{ color: "#669bbc", fontSize: "0.75rem" }}>
+                AI-powered disaster routing &amp; emergency dome placement
+              </span>
+            </VStack>
+          </div>
+        }
+        content={
+          <LayoutContent padding={4}>
+            <VStack gap={4}>
+                  <TabList value={tab} onChange={setTab} layout="fill" hasDivider>
+                    <Tab value="hazard" label="1. Affected" icon={<Target className="w-3.5 h-3.5" />} />
+                    <Tab value="route" label="2. Navigate" icon={<Navigation className="w-3.5 h-3.5" />} />
+                    <Tab value="report" label="3. Report" icon={<AlertTriangle className="w-3.5 h-3.5" />} />
+                  </TabList>
 
-        <CardContent className="pt-4 space-y-4">
-          <Tabs defaultValue="hazard" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 mb-4 bg-neutral-100/70 p-1 rounded-xl">
-              <TabsTrigger value="hazard" className="font-bold rounded-lg text-xs py-2">
-                <Target className="w-3.5 h-3.5 mr-1" />
-                1. Affected
-              </TabsTrigger>
-              <TabsTrigger value="route" className="font-bold rounded-lg text-xs py-2">
-                <Navigation className="w-3.5 h-3.5 mr-1" />
-                2. Navigate
-              </TabsTrigger>
-              <TabsTrigger value="report" className="font-bold rounded-lg text-xs py-2">
-                <AlertTriangle className="w-3.5 h-3.5 mr-1" />
-                3. Report
-              </TabsTrigger>
-            </TabsList>
-
-            {/* TAB 1: Affected Area & Hazard Dome Placement */}
-            <TabsContent value="hazard" className="space-y-4 mt-0">
-              <div className="space-y-3 p-3.5 bg-neutral-50 rounded-xl border border-neutral-100">
-                <Label className="font-bold text-neutral-700">Disaster Classification</Label>
-                <div className="grid grid-cols-3 gap-2">
-                  {/* Aegis Route covers every incident type, including accidents that
-                      cannot be forecast — once one occurs you still need evacuation routing. */}
-                  {["Wildfire", "Flooding", "Flash Flood", "Toxic Plume", "Earthquake", "Tornado", "Radiation Leak", "Chemical Spill", "Blizzard", "Ice Storm", "Volcanic Eruption", "Tropical Cyclone", "Heatwave", "Drought", "Extreme Cold", "Thunderstorm", "Landslide"].map((type) => (
-                    <button
-                      key={type}
-                      type="button"
-                      onClick={() => setIncidentType(type)}
-                      className={`py-2 px-1 rounded-lg border text-xs font-bold transition-all flex flex-col items-center gap-1.5 ${
-                        incidentType === type
-                          ? "bg-red-50 border-red-200 text-red-700 shadow-sm"
-                          : "bg-white border-neutral-200 text-neutral-600 hover:bg-neutral-50"
-                      }`}
-                    >
-                      {type === "Wildfire" && <Flame className="w-4 h-4 text-orange-500" />}
-                      {type === "Flooding" && <Waves className="w-4 h-4 text-blue-500" />}
-                      {type === "Flash Flood" && <Waves className="w-4 h-4 text-cyan-500" />}
-                      {type === "Ice Storm" && <Snowflake className="w-4 h-4 text-cyan-300" />}
-                      {type === "Toxic Plume" && <Skull className="w-4 h-4 text-green-500" />}
-                      {type === "Earthquake" && <Activity className="w-4 h-4 text-amber-500" />}
-                      {type === "Tornado" && <Wind className="w-4 h-4 text-teal-500" />}
-                      {type === "Radiation Leak" && <Radiation className="w-4 h-4 text-lime-500" />}
-                      {type === "Chemical Spill" && <Biohazard className="w-4 h-4 text-yellow-500" />}
-                      {type === "Blizzard" && <Snowflake className="w-4 h-4 text-sky-400" />}
-                      {type === "Volcanic Eruption" && <Mountain className="w-4 h-4 text-rose-600" />}
-                      {type === "Tropical Cyclone" && <Tornado className="w-4 h-4 text-cyan-600" />}
-                      {type === "Heatwave" && <Thermometer className="w-4 h-4 text-red-600" />}
-                      {type === "Drought" && <Sun className="w-4 h-4 text-amber-500" />}
-                      {type === "Extreme Cold" && <ThermometerSnowflake className="w-4 h-4 text-blue-400" />}
-                      {type === "Thunderstorm" && <CloudLightning className="w-4 h-4 text-indigo-500" />}
-                      {type === "Landslide" && <MountainSnow className="w-4 h-4 text-stone-600" />}
-                      {type}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <form onSubmit={handleLocateHazard} className="space-y-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="hazard-loc" className="font-bold text-neutral-700">Locate Epicentre</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="hazard-loc"
-                      placeholder="e.g. Times Square, NY"
-                      value={hazardSearch}
-                      onChange={(e) => setHazardSearch(e.target.value)}
-                      className="bg-white border-neutral-200 focus-visible:ring-red-500 rounded-xl flex-grow font-semibold"
-                    />
-                    <Button type="submit" className="bg-neutral-800 hover:bg-neutral-900 text-white font-bold rounded-xl px-4">
-                      Locate
-                    </Button>
-                  </div>
-                </div>
-              </form>
-
-              <div className="flex flex-col gap-2">
-                <div className="text-center font-semibold text-neutral-400 text-sm">OR</div>
-                <Button
-                  onClick={() => setIsPlacingHazard(true)}
-                  className={`w-full py-5 rounded-xl font-bold transition-all ${
-                    isPlacingHazard
-                      ? "bg-amber-500 hover:bg-amber-600 text-white animate-pulse"
-                      : "bg-red-600 hover:bg-red-700 text-white shadow-md shadow-red-100"
-                  }`}
-                >
-                  <Target className="w-5 h-5 mr-2" />
-                  {isPlacingHazard ? "Click on Map to Place Epicentre..." : "Tap to Place Epicentre"}
-                </Button>
-              </div>
-
-              {hazardCenter && (
-                <div className="space-y-3 pt-3 border-t border-neutral-100">
-                  <div className="flex justify-between items-center text-xs font-bold text-neutral-500">
-                    <span>EPICENTRE RADAR ACTIVE</span>
-                    <span className="text-red-600">[{hazardCenter[0].toFixed(4)}, {hazardCenter[1].toFixed(4)}]</span>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between text-xs font-bold text-neutral-700">
-                      <Label htmlFor="radius-slider">Impact Radius</Label>
-                      <span>{hazardRadius}m ({(hazardRadius / 1000).toFixed(1)} km)</span>
-                    </div>
-                    <input
-                      id="radius-slider"
-                      type="range"
-                      min="300"
-                      max="4000"
-                      step="100"
-                      value={hazardRadius}
-                      onChange={(e) => setHazardRadius(Number(e.target.value))}
-                      className="w-full h-2 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-red-600"
-                    />
-                  </div>
-
-                  {/* Real-time Population Estimation Display */}
-                  <div className="p-3 bg-neutral-900 text-white rounded-xl border border-neutral-800 shadow-inner mt-2 space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Identified City</span>
-                      <span className="text-xs font-extrabold text-neutral-100">{cityName || "Resolving..."}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Population Density</span>
-                      <span className="text-xs font-extrabold text-emerald-400">
-                        {densityLoading ? (
-                          <Loader2 className="w-3 h-3 animate-spin inline mr-1" />
-                        ) : densityPerKm2 ? (
-                          `${densityPerKm2.toLocaleString()} ppl/km²`
-                        ) : (
-                          "Loading..."
-                        )}
-                      </span>
-                    </div>
-                    <div className="border-t border-neutral-800 pt-2 flex justify-between items-end">
-                      <div className="flex flex-col text-left">
-                        <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Estimated Impacted Population</span>
-                        <span className="text-[9px] text-neutral-500 font-semibold">Area: {(Math.PI * Math.pow(hazardRadius / 1000, 2)).toFixed(2)} km²</span>
+                  {/* TAB 1: Affected Area & Hazard Dome Placement */}
+                  {tab === "hazard" && (
+                    <VStack gap={4}>
+                      <div className="section-accent">
+                        <Text type="body" weight="bold" style={{ color: "#fdf0d5" }}>Disaster classification</Text>
                       </div>
-                      <span className="text-lg font-black text-red-400 tracking-tight leading-none">
-                        {densityLoading ? (
-                          <Loader2 className="w-4 h-4 animate-spin text-neutral-400" />
-                        ) : densityPerKm2 !== null ? (
-                          `${Math.round(Math.PI * Math.pow(hazardRadius / 1000, 2) * densityPerKm2).toLocaleString()}`
-                        ) : (
-                          "Calculating..."
-                        )}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </TabsContent>
-
-            {/* TAB 2: Route Navigation & Evacuation Search */}
-            <TabsContent value="route" className="space-y-4 mt-0">
-              <form onSubmit={handleRoute} className="flex flex-col gap-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="start" className="font-bold text-neutral-700">Start Location</Label>
-                  <Input
-                    id="start"
-                    placeholder="Address or Landmark"
-                    value={startPoint}
-                    onChange={(e) => setStartPoint(e.target.value)}
-                    className="bg-white border-neutral-200 focus-visible:ring-blue-500 rounded-xl font-semibold"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="end" className="font-bold text-neutral-700">Destination (Safe Zone)</Label>
-                  <Input
-                    id="end"
-                    placeholder="Evacuation Point or Safe City"
-                    value={endPoint}
-                    onChange={(e) => setEndPoint(e.target.value)}
-                    className="bg-white border-neutral-200 focus-visible:ring-blue-500 rounded-xl font-semibold"
-                  />
-                </div>
-
-                <Button
-                  type="submit"
-                  disabled={routingLoading}
-                  className="w-full py-6 bg-blue-600 hover:bg-blue-700 text-white font-black text-base shadow-lg shadow-blue-100 rounded-xl transition-all flex items-center justify-center gap-2"
-                >
-                  {routingLoading ? (
-                    <>
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                      Computing Detour...
-                    </>
-                  ) : (
-                    <>
-                      <Navigation2 className="w-5 h-5" />
-                      Generate Evacuation Route
-                    </>
-                  )}
-                </Button>
-              </form>
-
-              {/* Recommended shelters list */}
-              {hazardCenter && evacuationPoints && evacuationPoints.features && (
-                <div className="space-y-2.5 pt-4 mt-2 border-t border-neutral-100">
-                  <h4 className="font-bold text-neutral-800 text-xs flex items-center gap-1.5 uppercase tracking-wider">
-                    Recommended Evacuation Shelters
-                  </h4>
-                  <div className="grid grid-cols-1 gap-2 max-h-[160px] overflow-y-auto pr-1">
-                    {evacuationPoints.features.map((shelter: any) => {
-                      const coords = shelter.geometry.coordinates;
-                      const isSelected = endCoords && Math.abs(endCoords[0] - coords[0]) < 0.00001 && Math.abs(endCoords[1] - coords[1]) < 0.00001;
-                      return (
-                        <div
-                          key={shelter.properties.id}
-                          className={`p-2.5 rounded-xl border transition-all flex justify-between items-center ${
-                            isSelected
-                              ? "bg-blue-50 border-blue-200 text-blue-800"
-                              : "bg-white border-neutral-100 hover:border-neutral-200 text-neutral-700 shadow-sm"
-                          }`}
-                        >
-                          <div className="flex flex-col text-left">
-                            <span className="text-xs font-black leading-tight">{shelter.properties.name}</span>
-                            <span className="text-[10px] text-neutral-400 font-semibold mt-0.5">
-                              {getDistance(hazardCenter, coords).toFixed(1)} km outside dome
-                            </span>
-                          </div>
-                          <Button
-                            size="sm"
-                            type="button"
-                            onClick={() => setEndCoords([coords[0], coords[1]])}
-                            className={`text-[10px] font-bold h-7 px-2.5 rounded-lg ${
-                              isSelected
-                                ? "bg-blue-600 hover:bg-blue-700 text-white"
-                                : "bg-neutral-100 hover:bg-neutral-200 text-neutral-700 border border-neutral-200"
-                            }`}
+                      <Card variant="muted" padding={3} style={{ background: "#001d2e", border: "1px solid #669bbc33", borderRadius: "0.625rem" }}>
+                          <ToggleButtonGroup
+                            label="Disaster classification"
+                            type="single"
+                            value={incidentType}
+                            onChange={(v: string | null | string[]) => v && setIncidentType(v as string)}
                           >
-                            {isSelected ? "Selected" : "Select"}
-                          </Button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </TabsContent>
-
-            {/* TAB 3: Incident Report Submission */}
-            <TabsContent value="report" className="mt-0">
-              <div className="flex flex-col gap-3">
-                <div className="p-3.5 bg-red-50/70 border border-red-100 rounded-xl">
-                  <div className="flex items-start gap-2.5">
-                    <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
-                    <div>
-                      <h4 className="font-bold text-red-900 text-sm">Wildfire reported</h4>
-                      <p className="text-xs text-red-700 font-medium mt-0.5">2.4 miles away • Moving Northeast</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-3.5 bg-amber-50/70 border border-amber-100 rounded-xl">
-                  <div className="flex items-start gap-2.5">
-                    <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-                    <div>
-                      <h4 className="font-bold text-amber-900 text-sm">Road Blocked</h4>
-                      <p className="text-xs text-amber-700 font-medium mt-0.5">I-95 Southbound due to debris</p>
-                    </div>
-                  </div>
-                </div>
-
-                <ReportIncidentModal>
-                  <Button variant="outline" className="w-full mt-2 border-neutral-200 text-neutral-700 font-bold py-5 rounded-xl bg-white/50 hover:bg-red-50 hover:text-red-700 hover:border-red-200 shadow-sm transition-all">
-                    Report New Incident
-                  </Button>
-                </ReportIncidentModal>
-
-                {/* Alert Emergency Services Button */}
-                <Button 
-                  onClick={handleAlertEmergencyServices}
-                  disabled={!hazardCenter || alertLoading}
-                  className={`w-full py-5 rounded-xl font-bold transition-all flex items-center justify-center gap-2 ${
-                    !hazardCenter 
-                      ? "bg-neutral-100 text-neutral-450 border border-neutral-200 cursor-not-allowed"
-                      : "bg-red-600 hover:bg-red-700 text-white shadow-md shadow-red-100 border border-red-700 animate-pulse hover:animate-none"
-                  }`}
-                >
-                  {alertLoading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin text-white" />
-                      Broadcasting Alert Signals...
-                    </>
-                  ) : (
-                    <>
-                      <Radio className="w-4 h-4" />
-                      {!hazardCenter ? "Place Epicentre to Enable Alerts" : "Alert Nearby Emergency Services"}
-                    </>
-                  )}
-                </Button>
-
-                {/* Nearby Emergency Services Section */}
-                <div className="mt-4 border-t border-neutral-100 pt-4">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-500 mb-3 flex items-center gap-1.5">
-                    <ShieldAlert className="w-4 h-4 text-neutral-400" />
-                    Nearby Emergency Services
-                  </h4>
-
-                  {facilitiesLoading ? (
-                    <div className="flex items-center justify-center py-6 text-neutral-400 text-xs gap-2">
-                      <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
-                      Locating emergency facilities...
-                    </div>
-                  ) : !hazardCenter ? (
-                    <p className="text-xs text-neutral-400 italic py-4 text-center bg-neutral-50 rounded-xl border border-dashed border-neutral-200">
-                      Place a hazard dome on the map to locate nearby emergency services.
-                    </p>
-                  ) : emergencyFacilities.length === 0 ? (
-                    <p className="text-xs text-neutral-400 italic py-4 text-center bg-neutral-50 rounded-xl border border-dashed border-neutral-200">
-                      No emergency services detected within 8km.
-                    </p>
-                  ) : (
-                    <div className="max-h-[350px] overflow-y-auto pr-1 space-y-2">
-                      {emergencyFacilities.map((fac, idx) => {
-                        let Icon = ShieldAlert;
-                        let typeColor = "text-neutral-500 bg-neutral-100";
-                        if (fac.type === "Hospital" || fac.type === "Clinic") {
-                          Icon = Activity;
-                          typeColor = "text-emerald-600 bg-emerald-50";
-                        } else if (fac.type === "Fire Station") {
-                          Icon = Flame;
-                          typeColor = "text-orange-600 bg-orange-50";
-                        } else if (fac.type === "Police Station") {
-                          Icon = Shield;
-                          typeColor = "text-blue-600 bg-blue-50";
-                        }
-
-                        const isInside = fac.status === "Inside Dome";
-
-                        return (
-                          <div 
-                            key={idx}
-                            onClick={() => {
-                              if (fac.coordinates) {
-                                setMapFlyToCoords(fac.coordinates);
-                              }
-                            }}
-                            className="group p-3 bg-white border border-neutral-200/80 rounded-xl hover:border-blue-400 hover:shadow-sm transition-all duration-200 cursor-pointer flex items-start justify-between gap-3"
-                          >
-                            <div className="flex items-start gap-2.5 min-w-0">
-                              <div className={`p-2 rounded-lg shrink-0 ${typeColor}`}>
-                                <Icon className="w-4 h-4" />
-                              </div>
-                              <div className="min-w-0">
-                                <h5 className="font-bold text-neutral-800 text-xs truncate group-hover:text-blue-600 transition-colors">
-                                  {fac.name}
-                                </h5>
-                                <p className="text-[10px] text-neutral-400 mt-0.5 truncate">{fac.address}</p>
-                                <p className="text-[10px] font-semibold text-neutral-500 mt-1 flex items-center gap-1">
-                                  <span>{Math.round(fac.distance)}m away</span>
-                                  <span>•</span>
-                                  <span className="capitalize">{fac.type.toLowerCase()}</span>
-                                </p>
-                              </div>
+                            {/* Two columns: labels like "Tropical Cyclone" and
+                                "Volcanic Eruption" truncate at three across. */}
+                            <div className="grid grid-cols-2 gap-2">
+                              {HAZARD_OPTIONS.map(({ type, icon }) => (
+                                <ToggleButton key={type} value={type} label={type} icon={icon} size="sm" />
+                              ))}
                             </div>
-                            <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full shrink-0 border uppercase tracking-wider ${
-                              isInside 
-                                ? "bg-red-50 text-red-600 border-red-100" 
-                                : "bg-emerald-50 text-emerald-600 border-emerald-100"
-                            }`}>
-                              {isInside ? "Trapped" : "Active"}
-                            </span>
+                          </ToggleButtonGroup>
+                      </Card>
+
+                      <VStack gap={2}>
+                        <HStack gap={2}>
+                          <div className="flex-1">
+                            <TextInput
+                              label="Locate epicentre"
+                              placeholder="e.g. Times Square, NY"
+                              value={hazardSearch}
+                              onChange={setHazardSearch}
+                            />
                           </div>
-                        );
-                      })}
-                    </div>
+                          <Button label="Locate" variant="secondary" clickAction={handleLocateHazard} />
+                        </HStack>
+                      </VStack>
+
+                      <VStack gap={2}>
+                        <Text type="supporting" color="secondary" justify="center" display="block">OR</Text>
+                        <Button
+                          label={isPlacingHazard ? "Click on map to place epicentre..." : "Tap to place epicentre"}
+                          variant="destructive"
+                          icon={<Target className="w-4 h-4" />}
+                          onClick={() => setIsPlacingHazard(true)}
+                          width="100%"
+                        />
+                      </VStack>
+
+                      {hazardCenter && (
+                        <VStack gap={3}>
+                          <HStack hAlign="between">
+                            <Text type="supporting" weight="bold">Epicentre radar active</Text>
+                            <Text type="supporting" weight="bold" color="accent">
+                              [{hazardCenter[0].toFixed(4)}, {hazardCenter[1].toFixed(4)}]
+                            </Text>
+                          </HStack>
+
+                          <Slider
+                            label="Impact radius"
+                            value={hazardRadius}
+                            onChange={((v: number) => setHazardRadius(v)) as any}
+                            min={300}
+                            max={4000}
+                            step={100}
+                            formatValue={(v) => `${v}m (${(v / 1000).toFixed(1)} km)`}
+                          />
+
+                          <Card variant="default" elevation="none" padding={3} style={{ background: "#002438", border: "1px solid #669bbc33" }}>
+                            <MetadataList columns="single">
+                              <MetadataListItem label="Identified city" style={{ color: "#669bbc" }}>{cityName || "Resolving..."}</MetadataListItem>
+                              <MetadataListItem label="Population density" style={{ color: "#669bbc" }}>
+                                {densityLoading ? "Loading..." : densityPerKm2 ? `${densityPerKm2.toLocaleString()} ppl/km²` : "Loading..."}
+                              </MetadataListItem>
+                              <MetadataListItem label="Estimated impacted population">
+                                {densityLoading
+                                  ? "Calculating..."
+                                  : densityPerKm2 !== null
+                                  ? Math.round(Math.PI * Math.pow(hazardRadius / 1000, 2) * densityPerKm2).toLocaleString()
+                                  : "Calculating..."}
+                                {" "}
+                                <Text type="supporting" size="3xs" color="secondary">
+                                  Area: {(Math.PI * Math.pow(hazardRadius / 1000, 2)).toFixed(2)} km²
+                                </Text>
+                              </MetadataListItem>
+                            </MetadataList>
+                          </Card>
+                        </VStack>
+                      )}
+                    </VStack>
                   )}
-                </div>
-              </div>
-            </TabsContent>
-          </Tabs>
 
-          {errorMessage && (
-            <div className="p-3 bg-red-50 border border-red-100 text-red-700 text-xs font-bold rounded-xl">
-              {errorMessage}
-            </div>
-          )}
+                  {/* TAB 2: Route Navigation & Evacuation Search */}
+                  {tab === "route" && (
+                    <VStack gap={4}>
+                      <VStack gap={3}>
+                        <TextInput label="Start location" placeholder="Address or landmark" value={startPoint} onChange={setStartPoint} />
+                        <TextInput label="Destination (safe zone)" placeholder="Evacuation point or safe city" value={endPoint} onChange={setEndPoint} />
+                        <Button
+                          label={routingLoading ? "Computing detour..." : "Generate evacuation route"}
+                          variant="primary"
+                          icon={routingLoading ? undefined : <Navigation2 className="w-4 h-4" />}
+                          isLoading={routingLoading}
+                          clickAction={handleRoute}
+                          width="100%"
+                        />
+                      </VStack>
 
-          {/* Route Metrics */}
-          {routeGeoJSON && (
-            <div className="space-y-3 pt-4 border-t border-neutral-100">
-              <h3 className="font-bold text-neutral-800 text-sm flex items-center gap-1.5">
-                <Compass className="w-4 h-4 text-neutral-600" />
-                Evacuation Route Statistics
-              </h3>
-              
-              <div className="grid grid-cols-2 gap-2.5">
-                <div className="p-3 bg-neutral-50 border border-neutral-100 rounded-xl flex flex-col">
-                  <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Direct Distance</span>
-                  <span className="text-base font-black text-neutral-800">
-                    {routeGeoJSON.properties.distance.toFixed(2)} km
-                  </span>
-                  <span className="text-[10px] font-semibold text-neutral-500">
-                    ~ {Math.round(routeGeoJSON.properties.duration)} mins
-                  </span>
-                </div>
-
-                {bypassRouteGeoJSON ? (
-                  <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-xl flex flex-col">
-                    <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Detour Path</span>
-                    <span className="text-base font-black text-emerald-800">
-                      {bypassRouteGeoJSON.properties.distance.toFixed(2)} km
-                    </span>
-                    <span className="text-[10px] font-semibold text-emerald-600">
-                      ~ {Math.round(bypassRouteGeoJSON.properties.duration)} mins
-                    </span>
-                  </div>
-                ) : (
-                  <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl flex flex-col justify-center">
-                    <div className="flex items-center gap-1.5 text-xs font-black text-blue-700">
-                      <CheckCircle2 className="w-4 h-4" />
-                      Direct Route Safe
-                    </div>
-                    <span className="text-[10px] text-blue-500 font-semibold mt-0.5">No detour required.</span>
-                  </div>
-                )}
-              </div>
-
-              {bypassRouteGeoJSON && (
-                <div className="p-3 bg-amber-50 border border-amber-100 rounded-xl text-xs text-amber-800 font-semibold flex gap-2">
-                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                  <div>
-                    <span>Primary route compromised by danger zone. Detour bypasses danger area (+{((bypassRouteGeoJSON.properties.distance - routeGeoJSON.properties.distance)).toFixed(2)} km).</span>
-                  </div>
-                </div>
-              )}
-
-              {/* TomTom Traffic Delay Info */}
-              {routeGeoJSON.properties.isTomTom && routeGeoJSON.properties.trafficDelayMins > 0 && (
-                <div className="p-3 bg-rose-50 border border-rose-100 rounded-xl text-xs text-rose-800 font-semibold flex gap-2">
-                  <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-                  <div>
-                    <span>Live Traffic Congestion: TomTom detected a +{routeGeoJSON.properties.trafficDelayMins} min real-world traffic delay along this path.</span>
-                  </div>
-                </div>
-              )}
-
-              {/* TomTom Incidents List */}
-              {routeGeoJSON.properties.isTomTom && routeGeoJSON.properties.incidents && routeGeoJSON.properties.incidents.length > 0 && (
-                <div className="p-3 bg-orange-50/70 border border-orange-100 rounded-xl space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-bold text-orange-800 uppercase tracking-wider flex items-center gap-1">
-                      <Compass className="w-3.5 h-3.5" />
-                      TomTom Live Traffic Incidents
-                    </span>
-                    <span className="text-[9px] bg-orange-200 text-orange-800 font-extrabold px-1.5 py-0.5 rounded-full">
-                      {routeGeoJSON.properties.incidents.length}
-                    </span>
-                  </div>
-                  <div className="space-y-1.5 max-h-[120px] overflow-y-auto pr-1">
-                    {routeGeoJSON.properties.incidents.map((inc: any, idx: number) => (
-                      <div key={idx} className="flex items-start gap-1.5 text-xs text-neutral-700 font-medium bg-white/55 p-1.5 rounded-lg border border-neutral-100/60">
-                        <AlertTriangle className="w-3.5 h-3.5 text-orange-600 shrink-0 mt-0.5" />
-                        <div>
-                          <div className="font-bold text-neutral-800">{inc.label}</div>
-                          <div className="text-[10px] text-neutral-500 font-semibold">
-                            {inc.delayMins > 0 ? `Adds ${inc.delayMins} min delay` : `No major delay`} • Avg Speed: {Math.round(inc.speedKmh)} km/h
+                      {hazardCenter && evacuationPoints && evacuationPoints.features && (
+                        <VStack gap={2}>
+                          <div className="divider-palette" />
+                          <div className="section-accent-blue">
+                            <Text type="supporting" weight="bold" style={{ color: "#fdf0d5" }}>Recommended evacuation shelters</Text>
                           </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+                          <div className="max-h-[160px] overflow-y-auto">
+                            <VStack gap={1}>
+                              {evacuationPoints.features.map((shelter: any) => {
+                                const coords = shelter.geometry.coordinates;
+                                const isSelected = endCoords && Math.abs(endCoords[0] - coords[0]) < 0.00001 && Math.abs(endCoords[1] - coords[1]) < 0.00001;
+                                return (
+                                  <Item
+                                    key={shelter.properties.id}
+                                    label={shelter.properties.name}
+                                    description={`${getDistance(hazardCenter, coords).toFixed(1)} km outside dome`}
+                                    isSelected={!!isSelected}
+                                    endContent={
+                                      <Button
+                                        label={isSelected ? "Selected" : "Select"}
+                                        size="sm"
+                                        variant={isSelected ? "primary" : "secondary"}
+                                        onClick={() => setEndCoords([coords[0], coords[1]])}
+                                      />
+                                    }
+                                  />
+                                );
+                              })}
+                            </VStack>
+                          </div>
+                        </VStack>
+                      )}
+                    </VStack>
+                  )}
 
-              {/* TomTom Attribution Badge */}
-              {routeGeoJSON.properties.isTomTom && (
-                <div className="text-[9px] text-neutral-400 font-bold text-right tracking-wider uppercase pr-1 flex items-center justify-end gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                  Real-time Traffic provided by TomTom API
-                </div>
-              )}
+                  {/* TAB 3: Incident Report Submission */}
+                  {tab === "report" && (
+                    <VStack gap={3}>
+                      <Banner status="error" title="Wildfire reported" description="2.4 miles away · Moving Northeast" />
+                      <Banner status="warning" title="Road blocked" description="I-95 Southbound due to debris" />
 
-              <Button
-                type="button"
-                onClick={handleExportRoute}
-                className="w-full py-5 bg-neutral-800 hover:bg-neutral-900 text-white font-bold rounded-xl flex items-center justify-center gap-2"
-              >
-                <Download className="w-4 h-4" />
-                Export Impacted Area + Route Coordinates (.md)
-              </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                      <ReportIncidentModal>
+                        <Button label="Report new incident" variant="secondary" width="100%" />
+                      </ReportIncidentModal>
 
-      {/* AI evacuation guidance panel */}
-      {(aiLoading || aiRecommendation) && (
-        <Card className="shadow-2xl border-0 bg-neutral-900 text-white rounded-2xl overflow-hidden border-t-2 border-emerald-500 shrink-0">
-          <CardHeader className="pb-3 border-b border-neutral-800 bg-neutral-950/40">
-            <CardTitle className="text-base font-black tracking-tight flex items-center gap-2 text-white">
-              <Sparkles className="w-5 h-5 text-emerald-400" />
-              AI Evacuation Advisor
-              {getIncidentIcon()}
-            </CardTitle>
-            <CardDescription className="text-neutral-400 text-xs">
-              OpenAI real-time disaster guidance engine
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="pt-4">
-            {aiLoading ? (
-              <div className="flex flex-col items-center justify-center py-6 gap-3 text-neutral-400">
-                <Loader2 className="w-7 h-7 animate-spin text-emerald-400" />
-                <span className="text-xs font-bold tracking-wide animate-pulse">GENERATING SAFETY DIRECTIVES...</span>
-              </div>
-            ) : (
-              <div className="text-xs leading-relaxed space-y-3 prose prose-invert max-w-none text-neutral-300 font-semibold">
-                {aiRecommendation.split("\n").map((line, idx) => {
-                  if (line.startsWith("###")) {
-                    return <h3 key={idx} className="font-extrabold text-sm text-white mt-4 first:mt-0">{line.replace("###", "").trim()}</h3>;
-                  }
-                  if (line.startsWith("##")) {
-                    return <h2 key={idx} className="font-black text-base text-white mt-4 first:mt-0">{line.replace("##", "").trim()}</h2>;
-                  }
-                  if (line.startsWith("1.") || line.startsWith("2.") || line.startsWith("3.") || line.startsWith("4.")) {
-                    return <div key={idx} className="font-extrabold text-white mt-3">{line}</div>;
-                  }
-                  if (line.trim().startsWith("-") || line.trim().startsWith("*")) {
-                    const cleanLine = line.trim().replace(/^[-*]\s*/, "");
-                    return (
-                      <div key={idx} className="relative pl-4 my-1 text-neutral-300 font-medium">
-                        <span className="absolute left-0 text-emerald-400 font-bold">•</span>
-                        <span>{cleanLine}</span>
-                      </div>
-                    );
-                  }
-                  return <p key={idx} className="my-1.5">{line}</p>;
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+                      <Button
+                        label={alertLoading ? "Broadcasting alert signals..." : !hazardCenter ? "Place epicentre to enable alerts" : "Alert nearby emergency services"}
+                        variant="destructive"
+                        icon={alertLoading ? undefined : <Radio className="w-4 h-4" />}
+                        isLoading={alertLoading}
+                        isDisabled={!hazardCenter}
+                        onClick={handleAlertEmergencyServices}
+                        width="100%"
+                      />
+
+                      <VStack gap={2}>
+                        <HStack gap={1.5} vAlign="center">
+                          <ShieldAlert className="w-4 h-4 text-secondary" />
+                          <Text type="supporting" weight="bold">Nearby emergency services</Text>
+                        </HStack>
+
+                        {facilitiesLoading ? (
+                          <HStack gap={2} hAlign="center" style={{ padding: "1.5rem 0" }}>
+                            <Loader2 className="w-4 h-4 animate-spin text-blue-vivid" />
+                            <Text type="supporting">Locating emergency facilities...</Text>
+                          </HStack>
+                        ) : !hazardCenter ? (
+                          <Text type="supporting" color="secondary" justify="center" display="block">
+                            Place a hazard dome on the map to locate nearby emergency services.
+                          </Text>
+                        ) : emergencyFacilities.length === 0 ? (
+                          <Text type="supporting" color="secondary" justify="center" display="block">
+                            No emergency services detected within 8km.
+                          </Text>
+                        ) : (
+                          <div className="max-h-[350px] overflow-y-auto">
+                            <VStack gap={1}>
+                              {emergencyFacilities.map((fac, idx) => {
+                                let Icon = ShieldAlert;
+                                if (fac.type === "Hospital" || fac.type === "Clinic") Icon = Activity;
+                                else if (fac.type === "Fire Station") Icon = Flame;
+                                else if (fac.type === "Police Station") Icon = Shield;
+
+                                const isInside = fac.status === "Inside Dome";
+
+                                return (
+                                  <Item
+                                    key={idx}
+                                    label={fac.name}
+                                    onClick={fac.coordinates ? () => setMapFlyToCoords(fac.coordinates) : undefined}
+                                    startContent={<Icon className="w-4 h-4" />}
+                                    description={`${fac.address} · ${Math.round(fac.distance)}m away · ${fac.type.toLowerCase()}`}
+                                    endContent={<Badge variant={isInside ? "error" : "success"} label={isInside ? "Trapped" : "Active"} />}
+                                  />
+                                );
+                              })}
+                            </VStack>
+                          </div>
+                        )}
+                      </VStack>
+                    </VStack>
+                  )}
+
+                  {errorMessage && <Banner status="error" title={errorMessage} />}
+
+                  {/* Route Metrics */}
+                  {routeGeoJSON && (
+                    <VStack gap={3}>
+                      <HStack gap={1.5} vAlign="center">
+                        <Compass className="w-4 h-4 text-secondary" />
+                        <Text type="body" weight="bold">Evacuation route statistics</Text>
+                      </HStack>
+
+                      <HStack gap={2}>
+                        <Card variant="muted" padding={3} width="100%">
+                          <VStack gap={0.5}>
+                            <Text type="supporting" size="3xs" weight="bold">Direct distance</Text>
+                            <Text type="body" weight="bold">{routeGeoJSON.properties.distance.toFixed(2)} km</Text>
+                            <Text type="supporting" size="3xs">~ {Math.round(routeGeoJSON.properties.duration)} mins</Text>
+                          </VStack>
+                        </Card>
+
+                        {bypassRouteGeoJSON ? (
+                          <Card variant="green" padding={3} width="100%">
+                            <VStack gap={0.5}>
+                              <Text type="supporting" size="3xs" weight="bold" style={{ color: "#669bbc" }}>Detour path</Text>
+                              <Text type="body" weight="bold">{bypassRouteGeoJSON.properties.distance.toFixed(2)} km</Text>
+                              <Text type="supporting" size="3xs" style={{ color: "#4a6573" }}>~ {Math.round(bypassRouteGeoJSON.properties.duration)} mins</Text>
+                            </VStack>
+                          </Card>
+                        ) : (
+                          <Card variant="blue" padding={3} width="100%">
+                            <VStack gap={0.5} hAlign="center">
+                              <HStack gap={1.5} vAlign="center">
+                                <CheckCircle2 className="w-4 h-4" />
+                                <Text type="supporting" weight="bold" style={{ color: "#669bbc" }}>Direct route safe</Text>
+                              </HStack>
+                              <Text type="supporting" size="3xs">No detour required.</Text>
+                            </VStack>
+                          </Card>
+                        )}
+                      </HStack>
+
+                      {bypassRouteGeoJSON && (
+                        <Banner
+                          status="warning"
+                          title="Primary route compromised by danger zone"
+                          description={`Detour bypasses danger area (+${(bypassRouteGeoJSON.properties.distance - routeGeoJSON.properties.distance).toFixed(2)} km).`}
+                        />
+                      )}
+
+                      {routeGeoJSON.properties.isTomTom && routeGeoJSON.properties.trafficDelayMins > 0 && (
+                        <Banner
+                          status="error"
+                          title="Live traffic congestion"
+                          description={`TomTom detected a +${routeGeoJSON.properties.trafficDelayMins} min real-world traffic delay along this path.`}
+                        />
+                      )}
+
+                      {routeGeoJSON.properties.isTomTom && routeGeoJSON.properties.incidents && routeGeoJSON.properties.incidents.length > 0 && (
+                        <Card variant="orange" padding={3}>
+                          <VStack gap={2}>
+                            <HStack hAlign="between">
+                              <HStack gap={1} vAlign="center">
+                                <Compass className="w-3.5 h-3.5" />
+                                <Text type="supporting" weight="bold" style={{ color: "#fdf0d5" }}>TomTom live traffic incidents</Text>
+                              </HStack>
+                              <Badge variant="orange" label={String(routeGeoJSON.properties.incidents.length)} />
+                            </HStack>
+                            <div className="max-h-[120px] overflow-y-auto">
+                              <VStack gap={1}>
+                                {routeGeoJSON.properties.incidents.map((inc: any, idx: number) => (
+                                  <Item
+                                    key={idx}
+                                    label={inc.label}
+                                    startContent={<AlertTriangle className="w-3.5 h-3.5" />}
+                                    description={
+                                      inc.delayMins > 0
+                                        ? `Adds ${inc.delayMins} min delay · Avg speed ${Math.round(inc.speedKmh)} km/h`
+                                        : `No major delay · Avg speed ${Math.round(inc.speedKmh)} km/h`
+                                    }
+                                  />
+                                ))}
+                              </VStack>
+                            </div>
+                          </VStack>
+                        </Card>
+                      )}
+
+                      {routeGeoJSON.properties.isTomTom && (
+                        <HStack gap={1.5} vAlign="center" hAlign="end">
+                          <span className="w-1.5 h-1.5 rounded-full bg-green-vivid animate-pulse" />
+                          <Text type="supporting" size="3xs" weight="bold">Real-time traffic provided by TomTom API</Text>
+                        </HStack>
+                      )}
+
+                      <Button label="Export impacted area + route coordinates (.md)" variant="secondary" icon={<Download className="w-4 h-4" />} onClick={handleExportRoute} width="100%" />
+                    </VStack>
+                  )}
+                  {/* AI evacuation guidance — a result panel inside the flow,
+                      not a separate floating card */}
+                  {(aiLoading || aiRecommendation) && (
+                    <Card variant="muted" padding={4}>
+                      <VStack gap={3}>
+                        <VStack gap={0.5}>
+                          <HStack gap={2} vAlign="center">
+                            <Sparkles className="w-5 h-5 text-blue-vivid" />
+                            <Heading level={3}>AI Evacuation Advisor</Heading>
+                            {getIncidentIcon()}
+                          </HStack>
+                          <Text type="supporting" color="secondary">OpenAI real-time disaster guidance engine</Text>
+                        </VStack>
+
+                        {aiLoading ? (
+                          <VStack gap={3} hAlign="center">
+                            <Loader2 className="w-7 h-7 animate-spin text-blue-vivid" />
+                            <Text type="supporting" weight="bold">Generating safety directives...</Text>
+                          </VStack>
+                        ) : (
+                          <VStack gap={2}>
+                            {aiRecommendation.split("\n").map((line, idx) => {
+                              if (line.startsWith("###")) {
+                                return <Heading key={idx} level={4}>{line.replace("###", "").trim()}</Heading>;
+                              }
+                              if (line.startsWith("##")) {
+                                return <Heading key={idx} level={3}>{line.replace("##", "").trim()}</Heading>;
+                              }
+                              if (line.startsWith("1.") || line.startsWith("2.") || line.startsWith("3.") || line.startsWith("4.")) {
+                                return <Text key={idx} type="body" weight="bold" display="block">{line}</Text>;
+                              }
+                              if (line.trim().startsWith("-") || line.trim().startsWith("*")) {
+                                const cleanLine = line.trim().replace(/^[-*]\s*/, "");
+                                return (
+                                  <HStack key={idx} gap={1.5}>
+                                    <Text type="body" color="accent" weight="bold">•</Text>
+                                    <Text type="body">{cleanLine}</Text>
+                                  </HStack>
+                                );
+                              }
+                              return <Text key={idx} type="body" display="block">{line}</Text>;
+                            })}
+                          </VStack>
+                        )}
+                      </VStack>
+                    </Card>
+                  )}
+                </VStack>
+              </LayoutContent>
+            }
+          />
 
       {/* Alert Success Dialog */}
-      <Dialog open={alertSuccess} onOpenChange={setAlertSuccess}>
-        <DialogContent className="sm:max-w-[480px] bg-neutral-900 border border-neutral-800 text-white rounded-2xl p-6 shadow-2xl">
-          <DialogHeader className="space-y-3">
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-red-500/10 rounded-full border border-red-500/20 text-red-400 animate-pulse">
-                <Bell className="w-7 h-7" />
-              </div>
-              <div>
-                <DialogTitle className="text-xl font-black tracking-tight text-white flex items-center gap-2">
-                  Emergency Signal Sent
-                </DialogTitle>
-                <DialogDescription className="text-neutral-400 text-xs font-semibold mt-1">
-                  Active disaster telemetry sent to nearest rescue services
-                </DialogDescription>
-              </div>
-            </div>
-          </DialogHeader>
+      <Dialog isOpen={alertSuccess} onOpenChange={setAlertSuccess} purpose="info" width={480}>
+        <Layout
+          header={
+            <DialogHeader
+              title="Emergency signal sent"
+              subtitle="Active disaster telemetry sent to nearest rescue services"
+              onOpenChange={() => setAlertSuccess(false)}
+            />
+          }
+          className="sidebar-panel"
+          content={
+            <LayoutContent padding={4}>
+              {alertedFacilities && (
+                <VStack gap={4}>
+                  <Card variant="muted" padding={3}>
+                    <MetadataList columns="single">
+                      <MetadataListItem label="Incident type">{incidentType}</MetadataListItem>
+                      <MetadataListItem label="Radius dome">{`${hazardRadius}m (${(hazardRadius / 1000).toFixed(1)} km)`}</MetadataListItem>
+                      {hazardCenter && (
+                        <MetadataListItem label="Coordinates">{`[${hazardCenter[0].toFixed(5)}, ${hazardCenter[1].toFixed(5)}]`}</MetadataListItem>
+                      )}
+                    </MetadataList>
+                  </Card>
 
-          {alertedFacilities && (
-            <div className="space-y-4 my-4">
-              {/* Telemetry Summary */}
-              <div className="p-3 bg-neutral-950/60 rounded-xl border border-neutral-800 space-y-1.5 text-xs">
-                <div className="flex justify-between font-semibold">
-                  <span className="text-neutral-500">Incident Type:</span>
-                  <span className="text-red-400 font-bold">{incidentType}</span>
-                </div>
-                <div className="flex justify-between font-semibold">
-                  <span className="text-neutral-500">Radius Dome:</span>
-                  <span className="text-white">{hazardRadius}m ({(hazardRadius / 1000).toFixed(1)} km)</span>
-                </div>
-                {hazardCenter && (
-                  <div className="flex justify-between font-semibold">
-                    <span className="text-neutral-500">Coordinates:</span>
-                    <span className="text-neutral-300 font-mono">[{hazardCenter[0].toFixed(5)}, {hazardCenter[1].toFixed(5)}]</span>
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-2.5">
-                <h4 className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">
-                  Notified Stations & Status
-                </h4>
-
-                <div className="space-y-2 max-h-[240px] overflow-y-auto pr-1">
-                  {/* Police Station */}
-                  <div className="flex items-start justify-between p-3 bg-neutral-950/30 border border-neutral-800/80 rounded-xl gap-3">
-                    <div className="flex items-start gap-2.5 min-w-0">
-                      <div className="p-1.5 bg-blue-500/10 text-blue-400 rounded-lg shrink-0">
-                        <Shield className="w-4 h-4" />
-                      </div>
-                      <div className="min-w-0">
-                        <h5 className="font-bold text-white text-xs truncate">{alertedFacilities.police.name}</h5>
-                        <p className="text-[10px] text-neutral-500 mt-0.5 truncate">{alertedFacilities.police.address}</p>
-                        <p className="text-[10px] font-bold text-blue-400 mt-1">{Math.round(alertedFacilities.police.distance)}m away • Police Station</p>
-                      </div>
+                  <VStack gap={2}>
+                    <Text type="supporting" weight="bold">Notified stations &amp; status</Text>
+                    <div className="max-h-[240px] overflow-y-auto">
+                      <VStack gap={1}>
+                        <Item
+                          label={alertedFacilities.police.name}
+                          description={`${alertedFacilities.police.address} · ${Math.round(alertedFacilities.police.distance)}m away · Police Station`}
+                          startContent={<Shield className="w-4 h-4" />}
+                          endContent={<Badge variant={alertedFacilities.police.status === "Inside Dome" ? "error" : "success"} label={alertedFacilities.police.status === "Inside Dome" ? "Trapped" : "Active"} />}
+                        />
+                        <Item
+                          label={alertedFacilities.fire.name}
+                          description={`${alertedFacilities.fire.address} · ${Math.round(alertedFacilities.fire.distance)}m away · Fire Station`}
+                          startContent={<Flame className="w-4 h-4" />}
+                          endContent={<Badge variant={alertedFacilities.fire.status === "Inside Dome" ? "error" : "success"} label={alertedFacilities.fire.status === "Inside Dome" ? "Trapped" : "Active"} />}
+                        />
+                        {alertedFacilities.healthcare.map((hc, idx) => (
+                          <Item
+                            key={idx}
+                            label={hc.name}
+                            description={`${hc.address} · ${Math.round(hc.distance)}m away · ${hc.type}`}
+                            startContent={<Activity className="w-4 h-4" />}
+                            endContent={<Badge variant={hc.status === "Inside Dome" ? "error" : "success"} label={hc.status === "Inside Dome" ? "Trapped" : "Active"} />}
+                          />
+                        ))}
+                      </VStack>
                     </div>
-                    <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-full shrink-0 border uppercase tracking-wider ${
-                      alertedFacilities.police.status === "Inside Dome" 
-                        ? "bg-red-500/10 text-red-400 border-red-500/20" 
-                        : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                    }`}>
-                      {alertedFacilities.police.status === "Inside Dome" ? "Trapped" : "Active"}
-                    </span>
-                  </div>
-
-                  {/* Fire Station */}
-                  <div className="flex items-start justify-between p-3 bg-neutral-950/30 border border-neutral-800/80 rounded-xl gap-3">
-                    <div className="flex items-start gap-2.5 min-w-0">
-                      <div className="p-1.5 bg-orange-500/10 text-orange-400 rounded-lg shrink-0">
-                        <Flame className="w-4 h-4" />
-                      </div>
-                      <div className="min-w-0">
-                        <h5 className="font-bold text-white text-xs truncate">{alertedFacilities.fire.name}</h5>
-                        <p className="text-[10px] text-neutral-500 mt-0.5 truncate">{alertedFacilities.fire.address}</p>
-                        <p className="text-[10px] font-bold text-orange-400 mt-1">{Math.round(alertedFacilities.fire.distance)}m away • Fire Station</p>
-                      </div>
-                    </div>
-                    <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-full shrink-0 border uppercase tracking-wider ${
-                      alertedFacilities.fire.status === "Inside Dome" 
-                        ? "bg-red-500/10 text-red-400 border-red-500/20" 
-                        : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                    }`}>
-                      {alertedFacilities.fire.status === "Inside Dome" ? "Trapped" : "Active"}
-                    </span>
-                  </div>
-
-                  {/* Healthcare Facilities */}
-                  {alertedFacilities.healthcare.map((hc, idx) => (
-                    <div key={idx} className="flex items-start justify-between p-3 bg-neutral-950/30 border border-neutral-800/80 rounded-xl gap-3">
-                      <div className="flex items-start gap-2.5 min-w-0">
-                        <div className="p-1.5 bg-emerald-500/10 text-emerald-400 rounded-lg shrink-0">
-                          <Activity className="w-4 h-4" />
-                        </div>
-                        <div className="min-w-0">
-                          <h5 className="font-bold text-white text-xs truncate">{hc.name}</h5>
-                          <p className="text-[10px] text-neutral-500 mt-0.5 truncate">{hc.address}</p>
-                          <p className="text-[10px] font-bold text-emerald-400 mt-1">{Math.round(hc.distance)}m away • {hc.type}</p>
-                        </div>
-                      </div>
-                      <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-full shrink-0 border uppercase tracking-wider ${
-                        hc.status === "Inside Dome" 
-                          ? "bg-red-500/10 text-red-400 border-red-500/20" 
-                          : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                      }`}>
-                        {hc.status === "Inside Dome" ? "Trapped" : "Active"}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          <DialogFooter className="mt-6">
-            <Button 
-              onClick={() => setAlertSuccess(false)}
-              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-5 rounded-xl border border-emerald-500 shadow-md shadow-emerald-950 transition-all flex items-center justify-center gap-2"
-            >
-              <CheckCircle2 className="w-4 h-4" />
-              Acknowledge Alert
-            </Button>
-          </DialogFooter>
-        </DialogContent>
+                  </VStack>
+                </VStack>
+              )}
+            </LayoutContent>
+          }
+          footer={
+            <LayoutFooter>
+              <Button label="Acknowledge alert" variant="primary" icon={<CheckCircle2 className="w-4 h-4" />} onClick={() => setAlertSuccess(false)} width="100%" />
+            </LayoutFooter>
+          }
+        />
       </Dialog>
-    </div>
+    </>
   );
 }

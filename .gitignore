@@ -3,6 +3,11 @@
 # dependencies
 node_modules/
 
+# Next.js (web app build output)
+/.next/
+/out/
+/build
+
 # Expo
 .expo/
 dist/
@@ -35,14 +40,11 @@ yarn-error.*
 
 # typescript
 *.tsbuildinfo
-<<<<<<< HEAD
 next-env.d.ts
 
 # local tool cache
 .freebuff/
-=======
 
 # generated native folders
 /ios
 /android
->>>>>>> ebdcff7 (refactor: convert repo to mobile app only and move aegis-mobile to root)

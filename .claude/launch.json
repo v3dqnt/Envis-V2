@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "envis-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "aegis-mobile-web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "aegis-mobile", "run", "web", "--", "--port", "8090"],
+      "port": 8090
+    }
+  ]
+}

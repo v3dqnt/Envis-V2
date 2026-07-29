@@ -118,10 +118,10 @@ export default function MapDashboard({
         type: 'fill-extrusion',
         source: 'hazard-dome-source',
         paint: {
-          'fill-extrusion-color': '#ef4444',
+          'fill-extrusion-color': '#c1121f',
           'fill-extrusion-height': ['get', 'height'],
           'fill-extrusion-base': 0,
-          'fill-extrusion-opacity': 0.4
+          'fill-extrusion-opacity': 0.35
         }
       });
 
@@ -130,9 +130,9 @@ export default function MapDashboard({
         type: 'line',
         source: 'hazard-dome-source',
         paint: {
-          'line-color': '#ef4444',
+          'line-color': '#c1121f',
           'line-width': 4,
-          'line-opacity': 0.8
+          'line-opacity': 0.9
         }
       });
 
@@ -146,7 +146,7 @@ export default function MapDashboard({
         type: 'line',
         source: 'defense-seismic-source',
         paint: {
-          'line-color': '#f59e0b',
+          'line-color': '#669bbc',
           'line-width': 4,
           'line-dasharray': [2, 2],
           'line-opacity': 0.8
@@ -162,7 +162,7 @@ export default function MapDashboard({
         type: 'line',
         source: 'defense-floodgate-source',
         paint: {
-          'line-color': '#3b82f6',
+          'line-color': '#669bbc',
           'line-width': 5,
           'line-opacity': 0.85
         }
@@ -177,7 +177,7 @@ export default function MapDashboard({
         type: 'line',
         source: 'defense-burn-source',
         paint: {
-          'line-color': '#ea580c',
+          'line-color': '#c1121f',
           'line-width': 5,
           'line-opacity': 0.85
         }
@@ -193,8 +193,8 @@ export default function MapDashboard({
         source: 'defense-siren-source',
         paint: {
           'circle-radius': 8,
-          'circle-color': '#eab308',
-          'circle-stroke-color': '#ffffff',
+          'circle-color': '#c1121f',
+          'circle-stroke-color': '#fdf0d5',
           'circle-stroke-width': 1.5,
           'circle-opacity': 0.8
         }
@@ -215,7 +215,7 @@ export default function MapDashboard({
         source: 'epicentre-source',
         paint: {
           'circle-radius': 16,
-          'circle-color': '#ef4444',
+          'circle-color': '#c1121f',
           'circle-opacity': 0.3,
           'circle-blur': 0.8
         }
@@ -227,8 +227,8 @@ export default function MapDashboard({
         source: 'epicentre-source',
         paint: {
           'circle-radius': 7,
-          'circle-color': '#ef4444',
-          'circle-stroke-color': '#ffffff',
+          'circle-color': '#c1121f',
+          'circle-stroke-color': '#fdf0d5',
           'circle-stroke-width': 2
         }
       });
@@ -254,10 +254,10 @@ export default function MapDashboard({
           'line-color': [
             'match',
             ['get', 'congestion'],
-            'heavy', '#ef4444',
-            'moderate', '#f59e0b',
-            'clear', '#10b981',
-            '#3b82f6' // fallback/default driving path color
+            'heavy', '#c1121f',
+            'moderate', '#780000',
+            'clear', '#669bbc',
+            '#669bbc' // fallback/default driving path color
           ],
           'line-width': 6,
           'line-opacity': 0.85
@@ -285,10 +285,10 @@ export default function MapDashboard({
           'line-color': [
             'match',
             ['get', 'congestion'],
-            'heavy', '#ef4444',
-            'moderate', '#f59e0b',
-            'clear', '#10b981',
-            '#10b981' // fallback/default bypass path color
+            'heavy', '#c1121f',
+            'moderate', '#780000',
+            'clear', '#669bbc',
+            '#669bbc' // fallback/default bypass path color
           ],
           'line-width': 6,
           'line-opacity': 0.9
@@ -311,7 +311,7 @@ export default function MapDashboard({
         source: 'evacuation-points-source',
         paint: {
           'circle-radius': 14,
-          'circle-color': '#3b82f6',
+          'circle-color': '#669bbc',
           'circle-opacity': 0.4,
           'circle-blur': 0.6
         }
@@ -324,8 +324,8 @@ export default function MapDashboard({
         source: 'evacuation-points-source',
         paint: {
           'circle-radius': 8,
-          'circle-color': '#2563eb',
-          'circle-stroke-color': '#ffffff',
+          'circle-color': '#669bbc',
+          'circle-stroke-color': '#fdf0d5',
           'circle-stroke-width': 2.5
         }
       });
@@ -339,7 +339,7 @@ export default function MapDashboard({
         }
       });
 
-      // High severity zones (red)
+      // High severity zones (Flag Red)
       m.addLayer({
         id: 'vulnerability-zones-high',
         type: 'circle',
@@ -347,15 +347,15 @@ export default function MapDashboard({
         filter: ['==', ['get', 'severity'], 'high'],
         paint: {
           'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 30, 15, 100],
-          'circle-color': '#dc2626',
+          'circle-color': '#c1121f',
           'circle-opacity': 0.25,
-          'circle-stroke-color': '#dc2626',
+          'circle-stroke-color': '#c1121f',
           'circle-stroke-width': 3,
           'circle-stroke-opacity': 0.8
         }
       });
 
-      // Medium severity zones (orange)
+      // Medium severity zones (Molten Lava)
       m.addLayer({
         id: 'vulnerability-zones-medium',
         type: 'circle',
@@ -363,15 +363,15 @@ export default function MapDashboard({
         filter: ['==', ['get', 'severity'], 'medium'],
         paint: {
           'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 25, 15, 80],
-          'circle-color': '#ea580c',
+          'circle-color': '#780000',
           'circle-opacity': 0.2,
-          'circle-stroke-color': '#ea580c',
+          'circle-stroke-color': '#780000',
           'circle-stroke-width': 2.5,
           'circle-stroke-opacity': 0.7
         }
       });
 
-      // Low severity zones (yellow)
+      // Low severity zones (Steel Blue)
       m.addLayer({
         id: 'vulnerability-zones-low',
         type: 'circle',
@@ -379,9 +379,9 @@ export default function MapDashboard({
         filter: ['==', ['get', 'severity'], 'low'],
         paint: {
           'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 20, 15, 60],
-          'circle-color': '#eab308',
+          'circle-color': '#669bbc',
           'circle-opacity': 0.15,
-          'circle-stroke-color': '#eab308',
+          'circle-stroke-color': '#669bbc',
           'circle-stroke-width': 2,
           'circle-stroke-opacity': 0.6
         }
@@ -396,10 +396,10 @@ export default function MapDashboard({
 
       const severityColorExpr: any = [
         'match', ['get', 'severity'],
-        'high', '#dc2626',
-        'medium', '#ea580c',
-        'low', '#eab308',
-        '#6b7280'
+        'high', '#c1121f',
+        'medium', '#780000',
+        'low', '#669bbc',
+        '#4a6573'
       ];
 
       m.addLayer({
@@ -441,7 +441,7 @@ export default function MapDashboard({
             `<div style="font-family:system-ui;font-size:11px;line-height:1.45">
                <div style="font-weight:800;margin-bottom:3px">${p.hazardType || 'Hazard'} · ${String(p.severity || '').toUpperCase()}</div>
                ${p.name ? `<div style="font-weight:600;margin-bottom:2px">${p.name}</div>` : ''}
-               <div style="color:#444">${p.reason || ''}</div>
+               <div style="color:#669bbc">${p.reason || ''}</div>
              </div>`
           )
           .addTo(m);
@@ -450,22 +450,22 @@ export default function MapDashboard({
       // 5b. Hazard Origin Points & Spread Paths — multi-hazard toggle view (Aegis Prevent)
       const hazardColorExpr: any = [
         'match', ['get', 'hazardType'],
-        'Wildfire', '#f97316',
-        'Flooding', '#3b82f6',
-        'Toxic Plume', '#22c55e',
-        'Earthquake', '#f59e0b',
-        'Tornado', '#14b8a6',
-        'Radiation Leak', '#84cc16',
-        'Chemical Spill', '#eab308',
-        'Blizzard', '#38bdf8',
-        'Volcanic Eruption', '#e11d48',
-        'Tropical Cyclone', '#0891b2',
-        'Heatwave', '#dc2626',
-        'Drought', '#f59e0b',
-        'Extreme Cold', '#60a5fa',
-        'Thunderstorm', '#6366f1',
-        'Landslide', '#57534e',
-        '#6b7280'
+        'Wildfire', '#c1121f',
+        'Flooding', '#669bbc',
+        'Toxic Plume', '#6b9e6b',
+        'Earthquake', '#780000',
+        'Tornado', '#669bbc',
+        'Radiation Leak', '#9e9e6b',
+        'Chemical Spill', '#9e8e6b',
+        'Blizzard', '#a8d4f0',
+        'Volcanic Eruption', '#c1121f',
+        'Tropical Cyclone', '#669bbc',
+        'Heatwave', '#c1121f',
+        'Drought', '#780000',
+        'Extreme Cold', '#a8d4f0',
+        'Thunderstorm', '#780000',
+        'Landslide', '#4a6573',
+        '#4a6573'
       ];
 
       m.addSource('hazard-paths-source', {
@@ -512,8 +512,8 @@ export default function MapDashboard({
           'text-anchor': 'top'
         },
         paint: {
-          'text-color': '#1f2937',
-          'text-halo-color': '#ffffff',
+          'text-color': '#fdf0d5',
+          'text-halo-color': '#003049',
           'text-halo-width': 1.5
         }
       });
@@ -557,14 +557,14 @@ export default function MapDashboard({
           ],
           'heatmap-color': [
             'interpolate', ['linear'], ['heatmap-density'],
-            0, 'rgba(33,102,172,0)',
-            0.1, 'rgb(103,169,207)',
-            0.25, 'rgb(209,229,240)',
+            0, 'rgba(0,48,73,0)',
+            0.1, 'rgb(102,155,188)',
+            0.25, 'rgb(128,175,210)',
             0.4, 'rgb(253,219,199)',
             0.55, 'rgb(239,138,98)',
-            0.7, 'rgb(178,24,43)',
-            0.85, 'rgb(128,0,38)',
-            1, 'rgb(80,0,20)'
+            0.7, 'rgb(193,18,31)',
+            0.85, 'rgb(120,0,0)',
+            1, 'rgb(60,0,0)'
           ],
           'heatmap-opacity': 0.55
         }
@@ -579,17 +579,17 @@ export default function MapDashboard({
           'circle-radius': 7,
           'circle-color': [
             'interpolate', ['linear'], ['get', 'temperature'],
-            5, '#2166ac',
-            15, '#4393c3',
-            22, '#92c5de',
-            26, '#f7f7f7',
+            5, '#003049',
+            15, '#669bbc',
+            22, '#a8d4f0',
+            26, '#fdf0d5',
             30, '#f4a582',
-            34, '#d6604d',
-            38, '#b2182b',
-            42, '#67001f'
+            34, '#c1121f',
+            38, '#780000',
+            42, '#4a0000'
           ],
           'circle-opacity': 0.9,
-          'circle-stroke-color': '#ffffff',
+          'circle-stroke-color': '#fdf0d5',
           'circle-stroke-width': 0.5
         }
       });
@@ -606,8 +606,8 @@ export default function MapDashboard({
           'text-offset': [0, -1.8]
         },
         paint: {
-          'text-color': '#ffffff',
-          'text-halo-color': '#000000',
+          'text-color': '#fdf0d5',
+          'text-halo-color': '#003049',
           'text-halo-width': 1.5,
           'text-opacity': 0.85
         }
@@ -656,7 +656,7 @@ export default function MapDashboard({
                    'type': 'fill-extrusion',
                    'minzoom': 15,
                    'paint': {
-                       'fill-extrusion-color': '#aaa',
+                       'fill-extrusion-color': '#4a6573',
                        'fill-extrusion-height': [
                            'interpolate', ['linear'], ['zoom'],
                            15, 0,
@@ -871,7 +871,7 @@ export default function MapDashboard({
             m.setPaintProperty(
               'primary-route-layer',
               'line-color',
-              bypassRouteGeoJSON ? '#ef4444' : '#3b82f6'
+              bypassRouteGeoJSON ? '#c1121f' : '#669bbc'
             );
             m.setPaintProperty(
               'primary-route-layer',

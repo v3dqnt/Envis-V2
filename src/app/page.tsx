@@ -6,6 +6,10 @@ import RoutingSidebar from "@/components/RoutingSidebar";
 import PreventionSidebar from "@/components/PreventionSidebar";
 import GdacsRightFeed from "@/components/GdacsRightFeed";
 import { Navigation, ShieldAlert, Loader2 } from "lucide-react";
+import { Card } from "@astryxdesign/core/Card";
+import { VStack } from "@astryxdesign/core/Layout";
+import { Text } from "@astryxdesign/core/Text";
+import { TabList, Tab } from "@astryxdesign/core/TabList";
 
 export default function Home() {
   const [mounted, setMounted] = useState(false);
@@ -296,44 +300,99 @@ export default function Home() {
 
   if (!mounted) {
     return (
-      <main className="h-screen w-full bg-neutral-900 flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3 text-neutral-400">
-          <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
-          <span className="text-xs font-bold tracking-widest uppercase animate-pulse">Initializing Aegis Command Center...</span>
-        </div>
+      <main className="h-screen w-full flex items-center justify-center" style={{ background: "#003049" }}>
+        <VStack gap={3} hAlign="center">
+          <Loader2 className="w-8 h-8 animate-spin" style={{ color: "#c1121f" }} />
+          <Text type="supporting" color="inherit" weight="bold" style={{ color: "#fdf0d5", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+            Initializing Aegis Command Center...
+          </Text>
+        </VStack>
       </main>
     );
   }
 
   return (
-    <main className="flex h-screen w-full flex-col relative overflow-hidden bg-neutral-100">
-      {/* Top Center Tabs Navigation */}
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 bg-white/95 backdrop-blur-xl border border-neutral-200/80 p-1 rounded-2xl shadow-xl flex gap-1 items-center">
-        <button
-          onClick={() => setMode("routing")}
-          className={`px-5 py-2.5 rounded-xl text-xs font-black tracking-wide transition-all flex items-center gap-2 cursor-pointer ${
-            mode === "routing"
-              ? "bg-neutral-900 text-white shadow-md"
-              : "text-neutral-600 hover:text-neutral-950 hover:bg-neutral-50"
-          }`}
-        >
-          <Navigation className="w-3.5 h-3.5" />
-          Evacuation Routing
-        </button>
-        <button
-          onClick={() => setMode("prevention")}
-          className={`px-5 py-2.5 rounded-xl text-xs font-black tracking-wide transition-all flex items-center gap-2 cursor-pointer ${
-            mode === "prevention"
-              ? "bg-neutral-900 text-white shadow-md"
-              : "text-neutral-600 hover:text-neutral-950 hover:bg-neutral-50"
-          }`}
-        >
-          <ShieldAlert className="w-3.5 h-3.5" />
-          Disaster Prevention
-        </button>
-      </div>
+    /* Docked three-column shell: control sidebar, map, live feed. The map is the
+       only region that flexes; the panels hold a fixed width so their content
+       never reflows as the window resizes. */
+    <main className="flex h-screen w-full overflow-hidden" style={{ background: "#001d2e" }}>
+      {/* Left control panel — docked, scrolls independently of the map */}
+      <aside className="sidebar-panel w-[27rem] shrink-0 h-full overflow-y-auto">
+        {mode === "routing" ? (
+          <RoutingSidebar
+            hazardCenter={hazardCenter}
+            setHazardCenter={setHazardCenter}
+            hazardRadius={hazardRadius}
+            setHazardRadius={setHazardRadius}
+            startCoords={startCoords}
+            setStartCoords={setStartCoords}
+            endCoords={endCoords}
+            setEndCoords={setEndCoords}
+            routeGeoJSON={routeGeoJSON}
+            setRouteGeoJSON={setRouteGeoJSON}
+            bypassRouteGeoJSON={bypassRouteGeoJSON}
+            setBypassRouteGeoJSON={setBypassRouteGeoJSON}
+            isPlacingHazard={isPlacingHazard}
+            setIsPlacingHazard={setIsPlacingHazard}
+            setMapFlyToCoords={setMapFlyToCoords}
+            aiRecommendation={aiRecommendation}
+            setAiRecommendation={setAiRecommendation}
+            aiLoading={aiLoading}
+            setAiLoading={setAiLoading}
+            evacuationPoints={evacuationPoints}
+            cityName={cityName}
+            setCityName={setCityName}
+            densityPerKm2={densityPerKm2}
+            setDensityPerKm2={setDensityPerKm2}
+            densityLoading={densityLoading}
+            setDensityLoading={setDensityLoading}
+            gdacsEvents={gdacsEvents}
+            gdacsLoading={gdacsLoading}
+            incidentType={incidentType}
+            setIncidentType={setIncidentType}
+            pendingAutoRoute={pendingAutoRoute}
+            clearPendingAutoRoute={() => setPendingAutoRoute(false)}
+          />
+        ) : (
+          <PreventionSidebar
+            hazardCenter={hazardCenter}
+            setHazardCenter={setHazardCenter}
+            hazardRadius={hazardRadius}
+            setMapFlyToCoords={setMapFlyToCoords}
+            activeDefenses={activeDefenses}
+            setActiveDefenses={setActiveDefenses}
+            cityName={cityName}
+            densityPerKm2={densityPerKm2}
+            gdacsEvents={gdacsEvents}
+            gdacsLoading={gdacsLoading}
+            incidentType={incidentType}
+            setIncidentType={setIncidentType}
+            setVulnerabilityZones={setVulnerabilityZones}
+            setHazardPolygons={setHazardPolygons}
+            setHazardOrigins={setHazardOrigins}
+            setHazardPaths={setHazardPaths}
+            showTemperatureHeatmap={showTemperatureHeatmap}
+            setShowTemperatureHeatmap={setShowTemperatureHeatmap}
+            temperatureHeatmapLoading={temperatureHeatmapLoading}
+            onSendToEvacuation={handleSendToEvacuation}
+          />
+        )}
+      </aside>
 
-      <MapDashboard
+      {/* Map region — the only element that flexes. Relative so MapLibre's
+          absolutely-positioned canvas fills exactly this column. */}
+      <div className="relative flex-1 h-full min-w-0">
+        {/* Mode switcher floats over the map, centred on the map area only */}
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20">
+          <Card elevation="high" padding={0.5} style={{ background: "#003049", border: "1px solid #c1121f4D", boxShadow: "0 4px 24px rgba(0,0,0,0.5)" }}>
+            <TabList value={mode} onChange={(v) => setMode(v as "routing" | "prevention")} layout="hug">
+              <Tab value="routing" label="Evacuation Routing" icon={<Navigation className="w-3.5 h-3.5" />} />
+              <Tab value="prevention" label="Disaster Prevention" icon={<ShieldAlert className="w-3.5 h-3.5" />} />
+            </TabList>
+          </Card>
+        </div>
+
+        <MapDashboard
         hazardCenter={mode === "routing" ? hazardCenter : null}
         hazardRadius={hazardRadius}
         routeGeoJSON={routeGeoJSON}
@@ -354,80 +413,23 @@ export default function Home() {
         hazardPolygons={hazardPolygons}
         hazardOrigins={hazardOrigins}
         hazardPaths={hazardPaths}
-        temperatureGridData={showTemperatureHeatmap ? temperatureGridData : null}
-        showTemperatureHeatmap={showTemperatureHeatmap}
-      />
-
-      {mode === "routing" ? (
-        <RoutingSidebar
-          hazardCenter={hazardCenter}
-          setHazardCenter={setHazardCenter}
-          hazardRadius={hazardRadius}
-          setHazardRadius={setHazardRadius}
-          startCoords={startCoords}
-          setStartCoords={setStartCoords}
-          endCoords={endCoords}
-          setEndCoords={setEndCoords}
-          routeGeoJSON={routeGeoJSON}
-          setRouteGeoJSON={setRouteGeoJSON}
-          bypassRouteGeoJSON={bypassRouteGeoJSON}
-          setBypassRouteGeoJSON={setBypassRouteGeoJSON}
-          isPlacingHazard={isPlacingHazard}
-          setIsPlacingHazard={setIsPlacingHazard}
-          setMapFlyToCoords={setMapFlyToCoords}
-          aiRecommendation={aiRecommendation}
-          setAiRecommendation={setAiRecommendation}
-          aiLoading={aiLoading}
-          setAiLoading={setAiLoading}
-          evacuationPoints={evacuationPoints}
-          cityName={cityName}
-          setCityName={setCityName}
-          densityPerKm2={densityPerKm2}
-          setDensityPerKm2={setDensityPerKm2}
-          densityLoading={densityLoading}
-          setDensityLoading={setDensityLoading}
-          gdacsEvents={gdacsEvents}
-          gdacsLoading={gdacsLoading}
-          incidentType={incidentType}
-          setIncidentType={setIncidentType}
-          pendingAutoRoute={pendingAutoRoute}
-          clearPendingAutoRoute={() => setPendingAutoRoute(false)}
-        />
-      ) : (
-        <PreventionSidebar
-          hazardCenter={hazardCenter}
-          setHazardCenter={setHazardCenter}
-          hazardRadius={hazardRadius}
-          setMapFlyToCoords={setMapFlyToCoords}
-          activeDefenses={activeDefenses}
-          setActiveDefenses={setActiveDefenses}
-          cityName={cityName}
-          densityPerKm2={densityPerKm2}
-          gdacsEvents={gdacsEvents}
-          gdacsLoading={gdacsLoading}
-          incidentType={incidentType}
-          setIncidentType={setIncidentType}
-          setVulnerabilityZones={setVulnerabilityZones}
-          setHazardPolygons={setHazardPolygons}
-          setHazardOrigins={setHazardOrigins}
-          setHazardPaths={setHazardPaths}
+          temperatureGridData={showTemperatureHeatmap ? temperatureGridData : null}
           showTemperatureHeatmap={showTemperatureHeatmap}
-          setShowTemperatureHeatmap={setShowTemperatureHeatmap}
-          temperatureHeatmapLoading={temperatureHeatmapLoading}
-          onSendToEvacuation={handleSendToEvacuation}
         />
-      )}
+      </div>
 
-      {/* Multi-source live feed panel — only in Aegis Prevent */}
+      {/* Right live-feed panel — docked, only in Aegis Prevent */}
       {mode === "prevention" && (
-        <GdacsRightFeed
-          cyclones={liveCyclones}
-          earthquakes={liveEarthquakes}
-          feedLoading={liveFeedLoading}
-          setHazardCenter={setHazardCenter}
-          setMapFlyToCoords={setMapFlyToCoords}
-          setIncidentType={setIncidentType}
-        />
+        <aside className="sidebar-panel-right w-[24rem] shrink-0 h-full overflow-y-auto">
+          <GdacsRightFeed
+            cyclones={liveCyclones}
+            earthquakes={liveEarthquakes}
+            feedLoading={liveFeedLoading}
+            setHazardCenter={setHazardCenter}
+            setMapFlyToCoords={setMapFlyToCoords}
+            setIncidentType={setIncidentType}
+          />
+        </aside>
       )}
     </main>
   );
