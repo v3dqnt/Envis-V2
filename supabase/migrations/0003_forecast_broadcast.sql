@@ -17,15 +17,23 @@
 --   forecast:<hazard>:<cellLat>,<cellLng>
 -- Same storm, same cell, same hazard => same row, updated in place.
 --
--- Nullable, because manually published alerts have no recurring identity. The
--- index is therefore partial: uniqueness is enforced only where a key exists,
--- so any number of manual alerts can coexist.
+-- Nullable, because manually published alerts have no recurring identity.
+--
+-- The index is deliberately NOT partial. PostgreSQL treats nulls as distinct in
+-- a unique index, so a plain unique index already permits any number of manual
+-- (null-key) alerts while enforcing uniqueness across forecast keys — the same
+-- guarantee a `where dedupe_key is not null` clause would give.
+--
+-- It matters because ON CONFLICT can only use a partial index if the statement
+-- repeats the same predicate, and PostgREST's upsert emits a bare
+-- `ON CONFLICT (dedupe_key)`. Against a partial index that fails with
+-- "no unique or exclusion constraint matching the ON CONFLICT specification".
 -- ---------------------------------------------------------------------------
 alter table alerts add column if not exists dedupe_key text;
 
+drop index if exists alerts_dedupe_key_idx;
 create unique index if not exists alerts_dedupe_key_idx
-  on alerts (dedupe_key)
-  where dedupe_key is not null;
+  on alerts (dedupe_key);
 
 -- Broadcast rewrites these on every run, so they need to be cheap to find.
 create index if not exists alerts_source_expires_idx on alerts (source, expires_at);
