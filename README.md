@@ -9,6 +9,8 @@ A real-time disaster intelligence platform built with Next.js 16 + MapLibre GL. 
 | **Aegis Route** | Real-time evacuation routing around active hazard zones with AI shelter recommendations |
 | **Aegis Prevent** | Multi-hazard prediction using real meteorological formulas (72h forecast) and OSM+elevation+weather polygon zones, with a "Route to Safety" handoff into Aegis Route |
 | **Mobile Alert Delivery** | Supabase/PostGIS backend matching published hazard alerts against a device's current location and saved commute points — see [Mobile Alert Delivery](#mobile-alert-delivery-supabase-backed) and [Agent instructions](#agent-instructions-wiring-alert-delivery-into-the-mobile-app) below |
+| **Evacuation Route Transmission** | Pushes the computed road route (direct + hazard-bypassing detour) and shelters to phones, so the warning arrives with the way out — see [Evacuation Route Transmission](#evacuation-route-transmission) |
+| **Continuous Forecast Broadcast** | Scheduled job that re-runs the 72h forecast wherever devices are registered and publishes, updates or withdraws alerts automatically — see [Continuous Forecast Broadcast](#continuous-forecast-broadcast) |
 
 ---
 
@@ -36,7 +38,8 @@ OPENTOPOGRAPHY_API_KEY=             # Optional: Copernicus DEM GLO-30 terrain (f
 COPERNICUS_CLIENT_ID=               # Optional: Sentinel-2 NDVI/NDMI vegetation dryness (free: https://dataspace.copernicus.eu/)
 COPERNICUS_CLIENT_SECRET=           # Optional: paired with COPERNICUS_CLIENT_ID
 SUPABASE_URL=                       # Optional: mobile alert delivery backend (free tier: https://supabase.com)
-SUPABASE_SERVICE_ROLE_KEY=          # Optional: paired with SUPABASE_URL — see supabase/migrations/0001_init.sql
+SUPABASE_SERVICE_ROLE_KEY=          # Optional: paired with SUPABASE_URL — see supabase/migrations/
+CRON_SECRET=                        # Optional: shared token for the scheduled forecast broadcast. Set this in production.
 ```
 
 Keyless data sources used with no configuration required: Open-Meteo (forecast, archive, elevation),
@@ -45,9 +48,12 @@ OpenStreetMap via Overpass, ISRIC SoilGrids, GDACS and USGS.
 ### Setting up Supabase (mobile alert delivery)
 
 1. Create a free project at [supabase.com](https://supabase.com).
-2. In the SQL editor, run `supabase/migrations/0001_init.sql` — it enables PostGIS and creates the devices/locations/commute-points/alerts schema described below.
+2. In the SQL editor, run the migrations in `supabase/migrations/` **in order**:
+   - `0001_init.sql` — PostGIS, devices, locations, commute points, alerts
+   - `0002_evacuation_routes.sql` — evacuation route geometry and shelters
+   - `0003_forecast_broadcast.sql` — dedupe key and broadcast run history
 3. Copy the project URL and the `service_role` key (Project Settings → API) into `.env.local`.
-4. Without these two variables, every `/api/devices/*` and `/api/alerts/*` route returns `503` with a setup note instead of failing — the rest of the app is unaffected.
+4. Without these two variables, every `/api/devices/*`, `/api/alerts/*` and `/api/forecast/broadcast` route returns `503` with a setup note instead of failing — the rest of the app is unaffected.
 
 ---
 
@@ -350,11 +356,136 @@ The main mobile polling endpoint. Returns every active alert matching the device
       "matchedPointLabel": "work",
       "distanceM": 3120,
       "publishedAt": "2026-07-28T18:00:00Z",
-      "expiresAt": "2026-07-30T18:00:00Z"
+      "expiresAt": "2026-07-30T18:00:00Z",
+      "evacuation": {
+        "hasPlan": true,
+        "recommendedRoute": {
+          "id": "9c02...",
+          "kind": "detour",
+          "label": "Detour bypassing the hazard",
+          "isRecommended": true,
+          "destinationName": "Quezon City Sports Complex",
+          "destination": { "lat": 14.638, "lng": 121.003 },
+          "distanceKm": 7.42,
+          "durationMin": 18,
+          "trafficDelayMin": 4,
+          "pathPoints": 240,
+          "path": { "type": "LineString", "coordinates": [[121.0, 14.59], "..."] }
+        },
+        "routes": ["..."],
+        "shelters": ["..."]
+      }
     }
   ],
   "checkedPoints": 3
 }
+```
+
+Every matched alert carries its evacuation plan in the same response. A warning the user cannot act on is the exact failure this project exists to fix, so the way out ships with the warning rather than behind a second round trip. `path` is a GeoJSON `LineString` ready to hand straight to a map component.
+
+---
+
+## Evacuation Route Transmission
+
+The dashboard already computes a real road route around the hazard dome with live traffic. These endpoints push that route to phones instead of leaving it on the operator's screen.
+
+### `POST /api/alerts/routes`
+
+Attach evacuation routes (and optionally shelters) to a published alert. Geometry is downsampled to 500 points server-side and stored as a PostGIS `LINESTRING`. Routes cascade-delete with their alert, so an expired hazard cannot leave a stale route behind.
+
+**Request body**
+```json
+{
+  "alertId": "b7e1...",
+  "routes": [
+    {
+      "kind": "primary",
+      "label": "Direct route",
+      "destinationName": "Evacuation Center North",
+      "destinationLat": 14.638,
+      "destinationLng": 121.003,
+      "path": [[121.0, 14.59], [121.001, 14.593]],
+      "distanceKm": 6.1,
+      "durationMin": 14,
+      "trafficDelayMin": 0,
+      "isRecommended": false
+    },
+    { "kind": "detour", "label": "Detour bypassing the hazard", "path": ["..."], "isRecommended": true }
+  ],
+  "shelters": [
+    { "name": "Quezon City Sports Complex", "lat": 14.638, "lng": 121.003, "direction": "North", "distanceKm": 3.2 }
+  ]
+}
+```
+
+`kind` is `primary` (direct) or `detour` (bypasses the hazard dome). At most one route may set `isRecommended` — enforced by a partial unique index. Re-transmitting replaces the previous plan by default; pass `"replace": false` to append.
+
+In the UI this is the **Transmit evacuation plan to mobile** button in Aegis Route, which publishes the alert and attaches both routes plus shelters in one action.
+
+### `GET /api/alerts/routes?alertId=...`
+
+Fetch the routes and shelters for one alert.
+
+---
+
+## Continuous Forecast Broadcast
+
+Everything above is operator-triggered: someone picks a location and presses Analyze. That does not scale to *warning people before it happens*, because it needs a human already looking at the right place. This job inverts it — it reads where devices actually are, runs the 72h forecast over those areas, and keeps the alerts table in sync with what the weather model currently says.
+
+### `POST /api/forecast/broadcast`
+
+Three behaviours make it a broadcast rather than a spam cannon:
+
+| | |
+|---|---|
+| **Publish** | a hazard crossing the threshold in a cell with no active alert |
+| **Update** | the same hazard still active — score, lead time and expiry refresh in place, so the phone sees one evolving alert rather than 24 a day |
+| **Withdraw** | a previously broadcast hazard that has dropped below threshold is expired immediately, because an all-clear matters as much as an alarm |
+
+Identity comes from `dedupe_key` (`forecast:<hazard>:<cell>`), so the job is idempotent — running it twice in a row publishes nothing the second time.
+
+Device locations and commute points are snapped to a ~11 km grid before forecasting, matching the resolution of the weather model itself. Fifty phones in one neighbourhood share one forecast rather than triggering fifty identical upstream calls.
+
+**Query params**
+
+| Param | Default | Description |
+|---|---|---|
+| `minScore` | `0.45` | Minimum risk score to broadcast. Below this the forecast is real but not actionable. |
+| `ttlHours` | `6` | Alert lifetime. Forecast alerts self-clear if broadcasting stops, so a dead scheduler degrades to silence rather than to stale warnings that look live. |
+| `dryRun` | `false` | Report what would be broadcast without writing anything. |
+
+**Response**
+```json
+{ "ok": true, "cellsScanned": 12, "published": 3, "updated": 7, "withdrawn": 1, "forecastErrors": 0 }
+```
+
+### `GET /api/forecast/broadcast`
+
+Recent run history from the `broadcast_runs` table — so "the forecast is quiet" can be told apart from "the job stopped running", which for a warning system are very different failures.
+
+### Scheduling it
+
+Protect the endpoint with `CRON_SECRET` in production; an unauthenticated route that fans out to an external weather API and writes alerts is not something to leave open. When the variable is set, callers must send `Authorization: Bearer <secret>`.
+
+Vercel Cron (`vercel.json`):
+```json
+{ "crons": [{ "path": "/api/forecast/broadcast", "schedule": "0 * * * *" }] }
+```
+
+Or GitHub Actions, for any host:
+```yaml
+on:
+  schedule: [{ cron: "0 * * * *" }]
+jobs:
+  broadcast:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          curl -fsS -X POST "$URL/api/forecast/broadcast" \
+            -H "Authorization: Bearer $CRON_SECRET"
+        env:
+          URL: ${{ secrets.DEPLOY_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
 ```
 
 ---

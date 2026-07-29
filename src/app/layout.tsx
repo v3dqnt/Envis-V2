@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import AstryxProvider from "@/components/AstryxProvider";
 
 export const metadata: Metadata = {
   title: "Aegis Disaster Evacuation Control",
@@ -17,8 +18,8 @@ export default function RootLayout({
       className="h-full antialiased"
       suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col font-sans" suppressHydrationWarning>
-        {children}
+      <body className="min-h-full flex flex-col" suppressHydrationWarning>
+        <AstryxProvider>{children}</AstryxProvider>
       </body>
     </html>
   );

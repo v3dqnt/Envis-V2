@@ -428,6 +428,9 @@ export default function RoutingSidebar({
   const [endPoint, setEndPoint] = useState("");
   const [hazardSearch, setHazardSearch] = useState("");
   const [routingLoading, setRoutingLoading] = useState(false);
+  // Transmission of the evacuation plan to registered mobile devices.
+  const [transmitState, setTransmitState] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [transmitDetail, setTransmitDetail] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [tab, setTab] = useState("hazard");
 
@@ -605,6 +608,9 @@ export default function RoutingSidebar({
     setRouteGeoJSON(null);
     setBypassRouteGeoJSON(null);
     setAiRecommendation("");
+    // A newly computed route invalidates whatever was transmitted before it.
+    setTransmitState("idle");
+    setTransmitDetail("");
     setRoutingLoading(true);
 
     try {
@@ -856,6 +862,128 @@ export default function RoutingSidebar({
     URL.revokeObjectURL(url);
   };
 
+  /**
+   * Flatten a routing FeatureCollection into one continuous [lng, lat] path.
+   *
+   * The map renders a route as many one-segment features so each can be tinted
+   * by congestion level. Transmission needs the opposite: a single ordered line.
+   * Consecutive segments share an endpoint, so drop the duplicate as we join.
+   */
+  const flattenRoutePath = (geo: any): [number, number][] => {
+    if (!geo || geo.type !== "FeatureCollection") return [];
+    const path: [number, number][] = [];
+    for (const f of geo.features || []) {
+      const seg = f?.geometry?.coordinates;
+      if (!Array.isArray(seg)) continue;
+      for (const pt of seg) {
+        const last = path[path.length - 1];
+        if (last && last[0] === pt[0] && last[1] === pt[1]) continue;
+        path.push([pt[0], pt[1]]);
+      }
+    }
+    return path;
+  };
+
+  /**
+   * Publish the hazard as an alert, then attach the routes computed for it.
+   *
+   * This is the step that turns the dashboard from a planning tool into a
+   * warning system: everything below is already on screen for the operator, and
+   * this puts it on the phone of anyone inside the affected area.
+   */
+  const handleTransmitEvacuation = async () => {
+    if (!hazardCenter || !routeGeoJSON) return;
+    setTransmitState("sending");
+
+    try {
+      const primaryPath = flattenRoutePath(routeGeoJSON);
+      const detourPath = flattenRoutePath(bypassRouteGeoJSON);
+      if (primaryPath.length < 2) {
+        throw new Error("Primary route has no usable geometry");
+      }
+
+      // 1. Publish the alert this evacuation plan belongs to.
+      const alertRes = await fetch("/api/alerts/publish", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          hazardType: incidentType,
+          severity: "high",
+          source: "manual",
+          title: `${incidentType} — evacuate now`,
+          message: `An evacuation route has been issued for the affected area${cityName ? ` in ${cityName}` : ""}. Follow the recommended route to the nearest safe zone.`,
+          lat: hazardCenter[1],
+          lng: hazardCenter[0],
+          radiusM: hazardRadius,
+          cityName: cityName || null,
+        }),
+      });
+      if (!alertRes.ok) throw new Error(`Publishing alert failed (${alertRes.status})`);
+      const { alert } = await alertRes.json();
+
+      // 2. Attach the route geometry. A detour exists only when the direct path
+      //    would cross the hazard, and it is the one to recommend when it does.
+      const routes: any[] = [
+        {
+          kind: "primary",
+          label: "Direct route",
+          destinationName: endPoint || null,
+          destinationLng: endCoords?.[0],
+          destinationLat: endCoords?.[1],
+          path: primaryPath,
+          distanceKm: routeGeoJSON.properties?.distance ?? null,
+          durationMin: routeGeoJSON.properties?.duration ?? null,
+          trafficDelayMin: routeGeoJSON.properties?.trafficDelayMins ?? null,
+          isRecommended: detourPath.length < 2,
+        },
+      ];
+      if (detourPath.length >= 2) {
+        routes.push({
+          kind: "detour",
+          label: "Detour bypassing the hazard",
+          destinationName: endPoint || null,
+          destinationLng: endCoords?.[0],
+          destinationLat: endCoords?.[1],
+          path: detourPath,
+          distanceKm: bypassRouteGeoJSON.properties?.distance ?? null,
+          durationMin: bypassRouteGeoJSON.properties?.duration ?? null,
+          trafficDelayMin: bypassRouteGeoJSON.properties?.trafficDelayMins ?? null,
+          isRecommended: true,
+        });
+      }
+
+      const shelters = (evacuationPoints?.features || []).map((s: any) => ({
+        name: s.properties?.name,
+        direction: s.properties?.direction ?? null,
+        reason: s.properties?.reason ?? null,
+        lng: s.geometry?.coordinates?.[0],
+        lat: s.geometry?.coordinates?.[1],
+        distanceKm: hazardCenter ? getDistance(hazardCenter, s.geometry.coordinates) : null,
+      }));
+
+      const routesRes = await fetch("/api/alerts/routes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ alertId: alert.id, routes, shelters }),
+      });
+      if (!routesRes.ok) {
+        const detail = await routesRes.json().catch(() => ({}));
+        throw new Error(detail.error || `Transmitting routes failed (${routesRes.status})`);
+      }
+      const summary = await routesRes.json();
+
+      setTransmitState("sent");
+      setTransmitDetail(
+        `${summary.routesTransmitted} route${summary.routesTransmitted === 1 ? "" : "s"}` +
+          `${summary.sheltersTransmitted ? ` and ${summary.sheltersTransmitted} shelters` : ""} sent`
+      );
+    } catch (err: any) {
+      console.error("Failed to transmit evacuation plan:", err);
+      setTransmitState("error");
+      setTransmitDetail(err?.message || "Transmission failed");
+    }
+  };
+
   const getIncidentIcon = () => {
     switch (incidentType) {
       case "Wildfire":
@@ -899,17 +1027,17 @@ export default function RoutingSidebar({
     <>
       <Layout
         header={
-          <div className="sidebar-header">
+          <LayoutHeader hasDivider padding={4}>
             <VStack gap={0.5}>
               <HStack gap={2} vAlign="center">
-                <ShieldAlert className="w-7 h-7" style={{ color: "#c1121f" }} />
-                <span className="sidebar-header-title" style={{ color: "#fdf0d5", fontSize: "1.25rem", fontWeight: 700 }}>Aegis Route</span>
+                <ShieldAlert className="w-7 h-7 text-accent" />
+                <Heading level={2}>Aegis Route</Heading>
               </HStack>
-              <span className="sidebar-header-subtitle" style={{ color: "#669bbc", fontSize: "0.75rem" }}>
+              <Text type="supporting" color="secondary">
                 AI-powered disaster routing &amp; emergency dome placement
-              </span>
+              </Text>
             </VStack>
-          </div>
+          </LayoutHeader>
         }
         content={
           <LayoutContent padding={4}>
@@ -1222,6 +1350,43 @@ export default function RoutingSidebar({
                           <Text type="supporting" size="3xs" weight="bold">Real-time traffic provided by TomTom API</Text>
                         </HStack>
                       )}
+
+                      {/* Transmit the plan to phones inside the affected area.
+                          Primary action here: the export is a record, this is
+                          the thing that actually reaches people. */}
+                      <VStack gap={1.5}>
+                        <Button
+                          label={
+                            transmitState === "sending"
+                              ? "Transmitting evacuation plan..."
+                              : transmitState === "sent"
+                              ? "Evacuation plan transmitted"
+                              : transmitState === "error"
+                              ? "Transmission failed — retry"
+                              : "Transmit evacuation plan to mobile"
+                          }
+                          variant={transmitState === "sent" ? "secondary" : "primary"}
+                          icon={
+                            transmitState === "sent" ? (
+                              <CheckCircle2 className="w-4 h-4" />
+                            ) : (
+                              <Radio className="w-4 h-4" />
+                            )
+                          }
+                          isLoading={transmitState === "sending"}
+                          onClick={handleTransmitEvacuation}
+                          width="100%"
+                        />
+                        {transmitDetail && (
+                          <Text
+                            type="supporting"
+                            size="3xs"
+                            color={transmitState === "error" ? "accent" : "secondary"}
+                          >
+                            {transmitDetail}
+                          </Text>
+                        )}
+                      </VStack>
 
                       <Button label="Export impacted area + route coordinates (.md)" variant="secondary" icon={<Download className="w-4 h-4" />} onClick={handleExportRoute} width="100%" />
                     </VStack>

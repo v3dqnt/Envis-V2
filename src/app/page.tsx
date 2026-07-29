@@ -314,10 +314,14 @@ export default function Home() {
   return (
     /* Docked three-column shell: control sidebar, map, live feed. The map is the
        only region that flexes; the panels hold a fixed width so their content
-       never reflows as the window resizes. */
-    <main className="flex h-screen w-full overflow-hidden" style={{ background: "#001d2e" }}>
+       never reflows as the window resizes.
+
+       Below lg the columns stack instead: a fixed-height map on top with the
+       control panel scrolling beneath it. Without this the 27rem panel eats a
+       narrow window whole and leaves the map a few pixels wide. */
+    <main className="flex h-screen w-full flex-col overflow-hidden lg:flex-row" style={{ background: "#001d2e" }}>
       {/* Left control panel — docked, scrolls independently of the map */}
-      <aside className="sidebar-panel w-[27rem] shrink-0 h-full overflow-y-auto">
+      <aside className="sidebar-panel order-2 w-full flex-1 min-h-0 overflow-y-auto lg:order-1 lg:w-[27rem] lg:flex-none lg:h-full">
         {mode === "routing" ? (
           <RoutingSidebar
             hazardCenter={hazardCenter}
@@ -381,7 +385,7 @@ export default function Home() {
 
       {/* Map region — the only element that flexes. Relative so MapLibre's
           absolutely-positioned canvas fills exactly this column. */}
-      <div className="relative flex-1 h-full min-w-0">
+      <div className="relative order-1 w-full h-[45vh] shrink-0 lg:order-2 lg:w-auto lg:h-full lg:flex-1 lg:shrink lg:min-w-0">
         {/* Mode switcher floats over the map, centred on the map area only */}
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20">
           <Card elevation="high" padding={0.5} style={{ background: "#003049", border: "1px solid #c1121f4D", boxShadow: "0 4px 24px rgba(0,0,0,0.5)" }}>
@@ -420,7 +424,7 @@ export default function Home() {
 
       {/* Right live-feed panel — docked, only in Aegis Prevent */}
       {mode === "prevention" && (
-        <aside className="sidebar-panel-right w-[24rem] shrink-0 h-full overflow-y-auto">
+        <aside className="sidebar-panel-right order-3 w-full max-h-[45vh] shrink-0 overflow-y-auto xl:w-[24rem] xl:max-h-none xl:h-full">
           <GdacsRightFeed
             cyclones={liveCyclones}
             earthquakes={liveEarthquakes}

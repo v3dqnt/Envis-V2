@@ -14,7 +14,10 @@
 @import "tailwindcss/preflight.css" layer(base);
 @import "@astryxdesign/core/reset.css";
 @import "@astryxdesign/core/astryx.css";
-@import "@astryxdesign/theme-neutral/theme.css";
+/* No theme-neutral/theme.css import here: the brand palette is composed at
+   runtime by defineTheme in src/lib/envisTheme.ts and injected by <Theme>.
+   Importing the pre-compiled neutral CSS as well would ship two competing
+   token sets. */
 /* Bridges Astryx tokens onto Tailwind utilities: bg-surface, text-primary,
    text-orange-vivid, border-blue-ring, and so on. Every colour in the app
    resolves through this, so light/dark and theme swaps stay automatic. */

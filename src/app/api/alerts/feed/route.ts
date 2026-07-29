@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin, supabaseUnavailable } from "@/lib/supabase";
+import { formatRoute, formatShelter } from "@/lib/evacuationRoutes";
 
 /**
  * The main mobile polling endpoint: given a registered device, return every
@@ -78,25 +79,69 @@ export async function GET(req: Request) {
     });
   }
 
+  // Attach the evacuation plan for every matched alert. A warning the user
+  // cannot act on is the exact failure this project exists to fix, so the way
+  // out ships in the same response rather than behind a second round trip.
+  // Fetched for all matched alerts at once — one query, not one per alert.
+  const alertIds = matches.map((m) => m.alert.id);
+  const routesByAlert = new Map<string, any[]>();
+  const sheltersByAlert = new Map<string, any[]>();
+
+  if (alertIds.length > 0) {
+    const [routesRes, sheltersRes] = await Promise.all([
+      supabase
+        .from("evacuation_routes_view")
+        .select("*")
+        .in("alert_id", alertIds)
+        .order("is_recommended", { ascending: false }),
+      supabase
+        .from("evacuation_shelters_view")
+        .select("*")
+        .in("alert_id", alertIds)
+        .order("distance_km", { ascending: true }),
+    ]);
+
+    // A missing evacuation plan must not blank the warning itself.
+    for (const r of routesRes.data || []) {
+      const list = routesByAlert.get(r.alert_id) || [];
+      list.push(formatRoute(r));
+      routesByAlert.set(r.alert_id, list);
+    }
+    for (const s of sheltersRes.data || []) {
+      const list = sheltersByAlert.get(s.alert_id) || [];
+      list.push(formatShelter(s));
+      sheltersByAlert.set(s.alert_id, list);
+    }
+  }
+
   const alerts = matches
     .sort((a, b) => (b.alert.risk_score ?? 0) - (a.alert.risk_score ?? 0))
-    .map((m) => ({
-      id: m.alert.id,
-      hazardType: m.alert.hazard_type,
-      severity: m.alert.severity,
-      source: m.alert.source,
-      title: m.alert.title,
-      message: m.alert.message,
-      method: m.alert.method,
-      riskScore: m.alert.risk_score,
-      leadTimeHours: m.alert.lead_time_hours,
-      cityName: m.alert.city_name,
-      publishedAt: m.alert.published_at,
-      expiresAt: m.alert.expires_at,
-      matchedVia: m.matchedVia,
-      matchedPointLabel: m.matchedPointLabel,
-      distanceM: Math.round(m.distanceM),
-    }));
+    .map((m) => {
+      const routes = routesByAlert.get(m.alert.id) || [];
+      return {
+        id: m.alert.id,
+        hazardType: m.alert.hazard_type,
+        severity: m.alert.severity,
+        source: m.alert.source,
+        title: m.alert.title,
+        message: m.alert.message,
+        method: m.alert.method,
+        riskScore: m.alert.risk_score,
+        leadTimeHours: m.alert.lead_time_hours,
+        cityName: m.alert.city_name,
+        publishedAt: m.alert.published_at,
+        expiresAt: m.alert.expires_at,
+        matchedVia: m.matchedVia,
+        matchedPointLabel: m.matchedPointLabel,
+        distanceM: Math.round(m.distanceM),
+        evacuation: {
+          hasPlan: routes.length > 0,
+          recommendedRoute: routes.find((r) => r.isRecommended) ?? null,
+          routes,
+          shelters: sheltersByAlert.get(m.alert.id) || [],
+        },
+      };
+    });
 
   return NextResponse.json({ alerts, checkedPoints: checkpoints.length });
 }

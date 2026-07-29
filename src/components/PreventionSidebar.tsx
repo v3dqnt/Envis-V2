@@ -830,17 +830,17 @@ export default function PreventionSidebar({
        No Card wrapper — that would draw a second border inside the sidebar. */
     <Layout
       header={
-            <div className="sidebar-header">
+            <LayoutHeader hasDivider padding={4}>
               <VStack gap={0.5}>
                 <HStack gap={2} vAlign="center">
-                  <ShieldCheck className="w-7 h-7" style={{ color: "#c1121f" }} />
-                  <span className="sidebar-header-title" style={{ color: "#fdf0d5", fontSize: "1.25rem", fontWeight: 700 }}>Aegis Prevent</span>
+                  <ShieldCheck className="w-7 h-7 text-accent" />
+                  <Heading level={2}>Aegis Prevent</Heading>
                 </HStack>
-                <span className="sidebar-header-subtitle" style={{ color: "#669bbc", fontSize: "0.75rem" }}>
+                <Text type="supporting" color="secondary">
                   Multi-hazard climate risk analysis — toggle any threat, analyze independently
-                </span>
+                </Text>
               </VStack>
-            </div>
+            </LayoutHeader>
           }
           content={
             <LayoutContent padding={4}>
