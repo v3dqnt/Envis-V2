@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import MapView, { Marker, Circle, Polyline, Polygon, Callout, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Marker, Circle, Polyline, Polygon, Callout } from 'react-native-maps';
 import { StyleSheet, View, Text } from 'react-native';
 import { colors } from '../lib/theme';
 import { toLatLng } from '../lib/helpers/coordinates';
@@ -104,15 +104,14 @@ export default function MapDashboard({
     <View style={styles.container}>
       <MapView
         ref={mapRef}
-        provider={PROVIDER_GOOGLE}
         style={StyleSheet.absoluteFill}
-        customMapStyle={DARK_MAP_STYLE}
         initialRegion={{
           latitude: 30.0,
           longitude: 0.0,
           latitudeDelta: 80,
           longitudeDelta: 80,
         }}
+        mapType="standard"
         onPress={(e) => {
           if (isPlacingHazard) {
             const { latitude, longitude } = e.nativeEvent.coordinate;
@@ -274,21 +273,3 @@ const styles = StyleSheet.create({
   }
 });
 
-// Sci-Fi Premium Dark Map Style configuration for Google Maps SDK
-const DARK_MAP_STYLE = [
-  { "elementType": "geometry", "stylers": [{ "color": "#0a0a0f" }] },
-  { "elementType": "labels.text.stroke", "stylers": [{ "color": "#0a0a0f" }] },
-  { "elementType": "labels.text.fill", "stylers": [{ "color": "#525266" }] },
-  { "featureType": "administrative", "elementType": "geometry", "stylers": [{ "visibility": "off" }] },
-  { "featureType": "administrative.country", "elementType": "geometry.stroke", "stylers": [{ "color": "#181824" }, { "visibility": "on" }] },
-  { "featureType": "administrative.province", "elementType": "geometry.stroke", "stylers": [{ "color": "#14141d" }, { "visibility": "on" }] },
-  { "featureType": "landscape", "elementType": "geometry", "stylers": [{ "color": "#0d0d14" }] },
-  { "featureType": "poi", "stylers": [{ "visibility": "off" }] },
-  { "featureType": "road", "elementType": "geometry", "stylers": [{ "color": "#171724" }] },
-  { "featureType": "road", "elementType": "geometry.stroke", "stylers": [{ "color": "#0d0d14" }] },
-  { "featureType": "road.highway", "elementType": "geometry", "stylers": [{ "color": "#202030" }] },
-  { "featureType": "road.highway.controlled_access", "elementType": "geometry", "stylers": [{ "color": "#28283d" }] },
-  { "featureType": "transit", "stylers": [{ "visibility": "off" }] },
-  { "featureType": "water", "elementType": "geometry", "stylers": [{ "color": "#040408" }] },
-  { "featureType": "water", "elementType": "labels.text.fill", "stylers": [{ "color": "#1f1f33" }] }
-];

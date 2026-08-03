@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Aegis",
-    "slug": "aegis-mobile",
+    "name": "GAIA",
+    "slug": "gaia-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
     "scheme": "aegis",
@@ -18,11 +18,6 @@
         "backgroundColor": "#070709"
       },
       "package": "com.aegis.disasterapp",
-      "config": {
-        "googleMaps": {
-          "apiKey": "YOUR_GOOGLE_MAPS_API_KEY"
-        }
-      },
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION"
@@ -30,10 +25,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.aegis.disasterapp",
-      "config": {
-        "googleMapsApiKey": "YOUR_GOOGLE_MAPS_API_KEY"
-      }
+      "bundleIdentifier": "com.aegis.disasterapp"
     },
     "web": {
       "favicon": "./assets/favicon.png"

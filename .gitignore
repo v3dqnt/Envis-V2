@@ -3,9 +3,9 @@
 # dependencies
 node_modules/
 
-# Next.js (web app build output)
-/.next/
-/out/
+# Next.js
+.next/
+out/
 /build
 
 # Expo

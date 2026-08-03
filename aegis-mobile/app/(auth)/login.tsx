@@ -124,8 +124,8 @@ export default function LoginScreen() {
             <View style={styles.logoBubble}>
               <ShieldChevron size={36} color={colors.emerald[400]} weight="duotone" />
             </View>
-            <Text style={styles.title}>Aegis</Text>
-            <Text style={styles.subtitle}>Disaster Evacuation Control</Text>
+            <Text style={styles.title}>GAIA</Text>
+            <Text style={styles.subtitle}>Central Notice Board</Text>
           </View>
 
           {/* Frosted command card */}
@@ -134,7 +134,7 @@ export default function LoginScreen() {
               {isSignUp ? 'Establish Security Access' : 'Secure Command Sign In'}
             </Text>
             <Text style={styles.cardSubtext}>
-              {isSignUp ? 'Connect to the Aegis disaster prevention grid.' : 'Sign in to access evacuation routing modules.'}
+              {isSignUp ? 'Connect to the GAIA alert grid.' : 'Sign in to access the central notice board.'}
             </Text>
 
             {/* Google OAuth */}
