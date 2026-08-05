@@ -117,6 +117,7 @@ const FORECAST_HAZARDS: Record<string, string> = {
   "Ice Storm": "Ice Storm",
   Wildfire: "Fire Weather",
   Drought: "Drought Stress",
+  Landslide: "Landslide",
 };
 
 type ConfidenceLevel = "high" | "medium" | "low";

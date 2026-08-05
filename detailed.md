@@ -472,7 +472,39 @@ Note: Drought and Wildfire are mutually exclusive in the risk list — drought i
 
 ### 2.11 Landslide
 
-**Endpoint:** `/api/vulnerability-zones`, `/api/hazard-zones`
+**Endpoint:** `/api/vulnerability-zones`, `/api/hazard-zones`, `/api/forecast-risk`
+
+#### 72h Forecast — Caine Rainfall I-D Threshold + Infinite-Slope Stability (`/api/forecast-risk`)
+
+Landslide is a full Tier 1 forecast hazard with an actual lead time — see [§5](#5-availability-logic--which-hazards-are-predicted-vs-audited). Two independent, published methods combine:
+
+**1. Rainfall trigger — Caine (1980) global intensity-duration threshold:**
+
+```
+I = 14.82 · D^-0.39   (I = mm/h, D = duration in hours)
+```
+
+The forecast rainfall series is tested against this curve at five durations (1, 3, 6, 12, 24h) via a rolling-window intensity — a short intense burst and a long moderate soak are both real triggers, so every duration is checked independently. The worst (highest ratio-to-threshold) duration drives the score; the first hour any duration crosses ratio ≥ 1 sets `leadTimeHours`.
+
+**2. Slope stability — infinite-slope factor of safety** (Montgomery & Dietrich 1994 / the physical model behind USGS's TRIGRS and SHALSTAB):
+
+```
+FS = [c' + (γ·z − γw·m·z)·cos²β·tanφ'] / (γ·z·sinβ·cosβ)
+```
+
+where `c'` = effective cohesion, `φ'` = effective friction angle, `γ` = soil unit weight, `z` = assumed 1.2m shallow regolith depth, `β` = slope angle, `m` = fraction of the soil column saturated (0–1). `c'`, `φ'`, `γ` come from `soilMechanicalParams()` — a texture-class lookup keyed off `/api/soil`'s USDA classification. `m` comes from real-time soil moisture (`soil_moisture_0_to_1cm`/`3_to_9cm`, already fetched for Flash Flood) blended with the Antecedent Precipitation Index. FS < 1.0 means resisting strength is already exceeded under the assumed conditions; FS > 1.5 is conventionally stable.
+
+**Slope source:** a 5-point Open-Meteo elevation cross (free, always available), refined against the Copernicus 30m DEM via `/api/terrain` when `OPENTOPOGRAPHY_API_KEY` is configured.
+
+```
+triggerF    = clamp01(worstIntensity / caineThreshold)
+saturationF = clamp01(soilMoistureState × 0.6 + apiF × 0.4)
+stabilityF  = clamp01((1.6 - FS) / 1.1)
+
+score = triggerF × 0.4 + stabilityF × 0.35 + saturationF × 0.25
+```
+
+Only evaluated where the elevation cross shows > 3% local gradient — flat ground is skipped before any of the above runs.
 
 #### Elevation Gradient Method (`/api/vulnerability-zones`)
 
@@ -741,6 +773,9 @@ These use the **72-hour numerical weather prediction** engine (`/api/forecast-ri
 | Blizzard | NWS three-part criteria | Wind, visibility, snowfall/depth |
 | Tropical Cyclone | Pressure minimum + Saffir-Simpson | MSL pressure, sustained wind, seasonal anomaly |
 | Extreme Cold | JAG/TI wind chill + frostbite thresholds | Temperature, wind speed, seasonal baseline |
+| Landslide | Caine rainfall I-D threshold + infinite-slope factor of safety | Rolling rainfall intensity, slope angle, soil texture, real-time saturation |
+
+Landslide moved here from Tier 2 once the rainfall-triggering and slope-stability logic — previously only available as an on-demand `/api/hazard-zones` analysis — was wired into the same 72h forecast engine everything else in this table uses. That also means it's automatically included in **Continuous Forecast Broadcast** (`/api/forecast/broadcast`), which fans out over whatever `/api/forecast-risk` returns with no per-hazard wiring required.
 
 #### Tier 2: Climatological Hazards (exposure-based — no onset time)
 
@@ -751,7 +786,6 @@ These derive from the **10-year historical archive** (`/api/weather-risk`):
 | Wildfire | Peak temperature + annual precipitation aridity |
 | Flooding | Peak daily rainfall |
 | Heatwave | Temperature anomaly (recent vs 10-year mean) |
-| Landslide | Terrain gradient + OSM geology (AI-audited) |
 
 #### Hazard Types NOT in Aegis Prevent
 
@@ -816,6 +850,23 @@ All functions follow published operational methods from national meteorological 
 - Utility: counts consecutive hours where a condition holds
 - Used for sustained cold, dry-spell duration, etc.
 
+### `caineIdThresholdMmPerHr(durationHours)`
+- **Source:** Caine (1980) global rainfall intensity-duration landslide threshold
+- `I = 14.82 · D^-0.39` — the baseline envelope regional systems (Italy's SIGMA, Hong Kong GEO, USGS Seattle/Bay Area) calibrate against
+- Returns: threshold intensity in mm/h for a given storm duration
+
+### `rollingIntensityMmPerHr(hourlyPrecipMm, windowHours)`
+- Utility: trailing rolling-mean rainfall intensity per hour, for testing forecast rainfall against the Caine threshold at several durations at once
+
+### `soilMechanicalParams(texture)`
+- **Source:** Typical geotechnical correlation tables for shallow colluvium/regolith by USDA texture class (comparable to NAVFAC DM-7.01 / USDA-NRCS references)
+- Returns: `{ cohesionKPa, frictionAngleDeg, unitWeightKNm3 }`, keyed off `/api/soil`'s texture classification
+
+### `infiniteSlopeFactorOfSafety({ slopeDeg, cohesionKPa, frictionAngleDeg, unitWeightKNm3, soilDepthM, saturationFraction })`
+- **Source:** Infinite-slope stability with parallel seepage — the physically-based model underlying USGS's TRIGRS and SHALSTAB shallow-landslide systems (Montgomery & Dietrich 1994; Selby 1993)
+- `FS = [c' + (γ·z − γw·m·z)·cos²β·tanφ'] / (γ·z·sinβ·cosβ)`
+- Returns: factor of safety (> 1.5 stable, < 1.0 theoretically failing under the assumed conditions)
+
 ### `clamp01(v)`
 - Utility: `max(0, min(1, v))`
 
@@ -848,4 +899,4 @@ The prevention report can be exported as a full markdown document via `buildMark
 
 *Data attribution: OpenStreetMap (ODbL) · Open-Meteo · GDACS · USGS · NASA FIRMS · OpenAQ · TomTom · OpenAI · MapTiler*
 
-*Last updated: July 2026*
+*Last updated: August 2026*

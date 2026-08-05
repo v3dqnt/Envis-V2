@@ -11,6 +11,10 @@ import {
   iceAccretionImpact,
   longestRun,
   clamp01,
+  caineIdThresholdMmPerHr,
+  rollingIntensityMmPerHr,
+  soilMechanicalParams,
+  infiniteSlopeFactorOfSafety,
 } from "@/lib/meteorology";
 
 /**
@@ -176,6 +180,69 @@ async function fetchFuelDryness(req: Request, lat: number, lng: number): Promise
   }
 }
 
+/**
+ * Local slope from a 5-point elevation cross (Open-Meteo elevation API, free, no
+ * key) — always available, same technique as the vulnerability-zones and
+ * hazard-zones landslide models. Gives a slope estimate even when nothing else
+ * below does.
+ */
+async function fetchSlopeGradient(lat: number, lng: number): Promise<{ gradientPct: number; elevationM: number } | null> {
+  const offsetDeg = 0.01; // ~1.1km
+  const latOffsetLng = offsetDeg / Math.cos((lat * Math.PI) / 180);
+  const points = [
+    { lat, lng },
+    { lat: lat + offsetDeg, lng },
+    { lat: lat - offsetDeg, lng },
+    { lat, lng: lng + latOffsetLng },
+    { lat, lng: lng - latOffsetLng },
+  ];
+  const lats = points.map((p) => p.lat.toFixed(5)).join(",");
+  const lngs = points.map((p) => p.lng.toFixed(5)).join(",");
+  try {
+    const res = await fetch(`https://api.open-meteo.com/v1/elevation?latitude=${lats}&longitude=${lngs}`, {
+      next: { revalidate: 604800 },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const elev: number[] = data.elevation || [];
+    if (elev.length < 5 || elev.some((e) => e === null || isNaN(e))) return null;
+    const [center, north, south, east, west] = elev;
+    const distanceMeters = offsetDeg * 111320;
+    const maxDrop = Math.max(Math.abs(center - north), Math.abs(center - south), Math.abs(center - east), Math.abs(center - west));
+    return { gradientPct: (maxDrop / distanceMeters) * 100, elevationM: center };
+  } catch {
+    return null;
+  }
+}
+
+/** Copernicus 30m DEM refinement, when OPENTOPOGRAPHY_API_KEY is configured. Degrades to null. */
+async function fetchTerrainRefinement(req: Request, lat: number, lng: number): Promise<{ maxSlopePct: number; reliefM: number } | null> {
+  try {
+    const origin = new URL(req.url).origin;
+    const res = await fetch(`${origin}/api/terrain?lat=${lat}&lng=${lng}&radiusKm=1.5`, { next: { revalidate: 604800 } });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data.available) return null;
+    return { maxSlopePct: data.maxSlopePct, reliefM: data.reliefM };
+  } catch {
+    return null;
+  }
+}
+
+/** ISRIC SoilGrids texture class, for geotechnical parameter lookup. Degrades to null. */
+async function fetchSoilTexture(req: Request, lat: number, lng: number): Promise<{ texture: string | undefined; clayPct: number | null; note: string } | null> {
+  try {
+    const origin = new URL(req.url).origin;
+    const res = await fetch(`${origin}/api/soil?lat=${lat}&lng=${lng}`, { next: { revalidate: 604800 } });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data.available) return null;
+    return { texture: data.texture, clayPct: data.subsoil?.clayPct ?? null, note: data.landslideRelevance ?? "" };
+  } catch {
+    return null;
+  }
+}
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const lat = parseFloat(searchParams.get("lat") || "");
@@ -187,8 +254,11 @@ export async function GET(req: Request) {
   let data: any;
   let baseline: Awaited<ReturnType<typeof fetchSeasonalBaseline>> = null;
   let fuel: { fuelDrynessIndex: number; ndmi: number } | null = null;
+  let slope: { gradientPct: number; elevationM: number } | null = null;
+  let terrain: { maxSlopePct: number; reliefM: number } | null = null;
+  let soilTexture: { texture: string | undefined; clayPct: number | null; note: string } | null = null;
   try {
-    const [fRes, bl, fl] = await Promise.all([
+    const [fRes, bl, fl, sl, tr, st] = await Promise.all([
       fetch(
         `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}` +
           `&hourly=${HOURLY_VARS}&daily=${DAILY_VARS}&forecast_days=3&past_days=14&timezone=auto&wind_speed_unit=kmh`,
@@ -196,11 +266,17 @@ export async function GET(req: Request) {
       ),
       fetchSeasonalBaseline(lat, lng),
       fetchFuelDryness(req, lat, lng),
+      fetchSlopeGradient(lat, lng),
+      fetchTerrainRefinement(req, lat, lng),
+      fetchSoilTexture(req, lat, lng),
     ]);
     if (!fRes.ok) return NextResponse.json({ error: `Open-Meteo returned ${fRes.status}` }, { status: 502 });
     data = await fRes.json();
     baseline = bl;
     fuel = fl;
+    slope = sl;
+    terrain = tr;
+    soilTexture = st;
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 502 });
   }
@@ -355,6 +431,112 @@ export async function GET(req: Request) {
           { label: "72h rainfall total", value: `${total72.toFixed(0)} mm`, meaning: "Cumulative load on drainage" },
         ],
         action: score > 0.6 ? "Clear drains and culverts now; avoid underpasses and low-lying roads during the peak window." : "Check drainage on low-lying streets ahead of peak rainfall.",
+      });
+    }
+  }
+
+  // ============ LANDSLIDE — Caine rainfall I-D threshold + infinite-slope stability ============
+  if (slope && slope.gradientPct > 3) {
+    const slopeSourcePct = terrain?.maxSlopePct ?? slope.gradientPct;
+    const slopeDeg = Math.atan(slopeSourcePct / 100) * (180 / Math.PI);
+
+    // Rainfall trigger: test forecast intensity at several durations against Caine's
+    // (1980) global rainfall intensity-duration threshold, and find the first hour
+    // any duration crosses it — a short intense burst and a long moderate soak are
+    // both real triggers, so every duration is checked independently.
+    const durations = [1, 3, 6, 12, 24];
+    let worstRatio = 0;
+    let worstDriver: { durationH: number; intensity: number; threshold: number } | null = null;
+    let triggerIndex: number | null = null;
+    for (const dHrs of durations) {
+      const rolling = rollingIntensityMmPerHr(precip, dHrs);
+      const threshold = caineIdThresholdMmPerHr(dHrs);
+      for (let i = 0; i < rolling.length; i++) {
+        const v = rolling[i];
+        if (v === null) continue;
+        const ratio = v / threshold;
+        if (ratio > worstRatio) {
+          worstRatio = ratio;
+          worstDriver = { durationH: dHrs, intensity: v, threshold };
+        }
+        if (ratio >= 1 && triggerIndex === null) triggerIndex = i;
+      }
+    }
+    const triggerF = clamp01(worstRatio);
+
+    // Saturation: blend real-time soil moisture with antecedent rainfall — the same
+    // signals the Flash Flood model above uses. A slope loses shear strength the
+    // same way a catchment loses absorption capacity.
+    const saturationState = clamp01(((smSurface + smRoot) / 2 - 0.15) / 0.25);
+    const apiF = clamp01(api / 40);
+    const saturationF = clamp01(saturationState * 0.6 + apiF * 0.4);
+
+    // Slope stability: infinite-slope factor of safety (Montgomery & Dietrich 1994 /
+    // TRIGRS-SHALSTAB form), using texture-derived strength parameters and the
+    // saturation state as the fraction of an assumed 1.2m shallow regolith column
+    // carrying pore pressure.
+    const mech = soilMechanicalParams(soilTexture?.texture);
+    const fs = infiniteSlopeFactorOfSafety({
+      slopeDeg,
+      cohesionKPa: mech.cohesionKPa,
+      frictionAngleDeg: mech.frictionAngleDeg,
+      unitWeightKNm3: mech.unitWeightKNm3,
+      soilDepthM: 1.2,
+      saturationFraction: saturationState,
+    });
+    const stabilityF = clamp01((1.6 - fs) / 1.1); // FS 1.6 (comfortably stable) -> 0, FS 0.5 (failing) -> 1
+
+    const score = clamp01(triggerF * 0.4 + stabilityF * 0.35 + saturationF * 0.25);
+
+    if (score > 0.22) {
+      forecasts.push({
+        hazard: "Landslide",
+        method: terrain
+          ? "Caine rainfall I-D threshold + infinite-slope factor of safety (Copernicus 30m DEM slope, SoilGrids texture)"
+          : "Caine rainfall I-D threshold + infinite-slope factor of safety (elevation-cross slope, SoilGrids texture)",
+        riskScore: Number(score.toFixed(2)),
+        confidence: conf(score),
+        leadTimeHours: triggerIndex,
+        peakTimeIso: triggerIndex !== null ? times[triggerIndex] || null : null,
+        window: "next 72h",
+        compound: true,
+        drivers: [
+          {
+            label: "Rainfall vs Caine I-D threshold",
+            value: worstDriver
+              ? `${worstDriver.intensity.toFixed(1)} mm/h over ${worstDriver.durationH}h (threshold ${worstDriver.threshold.toFixed(1)} mm/h)`
+              : "no significant rain forecast",
+            meaning: worstRatio >= 1 ? "Forecast rainfall crosses the global triggering envelope" : worstRatio >= 0.7 ? "Approaching the triggering envelope" : "Below the triggering envelope",
+          },
+          {
+            label: "Infinite-slope factor of safety",
+            value: fs.toFixed(2),
+            meaning: fs < 1.0 ? "Below 1.0 — driving stress exceeds resisting strength under these conditions" : fs < 1.5 ? "Marginal — limited safety margin" : "Stable under current conditions",
+          },
+          {
+            label: "Slope angle",
+            value: `${slopeDeg.toFixed(1)}°`,
+            meaning: terrain ? "Refined against Copernicus 30m DEM" : "From a 5-point elevation cross (~1.1km spacing)",
+          },
+          {
+            label: "Soil texture & strength",
+            value: soilTexture?.texture
+              ? `${soilTexture.texture} (φ'=${mech.frictionAngleDeg}°, c'=${mech.cohesionKPa}kPa)`
+              : `assumed loam-like (φ'=${mech.frictionAngleDeg}°, c'=${mech.cohesionKPa}kPa)`,
+            meaning: soilTexture?.note || "SoilGrids texture unavailable — using a mid-range default",
+          },
+          {
+            label: "Saturation state",
+            value: `${(saturationState * 100).toFixed(0)}% of assumed regolith column + API ${api.toFixed(1)}mm`,
+            meaning: saturationState > 0.6 ? "Near-saturated — little pore-pressure buffer left" : "Some absorption capacity remains",
+          },
+        ],
+        action:
+          score > 0.6
+            ? "Evacuate or avoid steep terrain now — forecast rainfall crosses the triggering threshold on already-saturated ground."
+            : score > 0.4
+            ? "Monitor closely and prepare evacuation routes for hillside settlements ahead of the peak rainfall window."
+            : "Watch conditions; slope shows elevated but not yet critical risk.",
       });
     }
   }

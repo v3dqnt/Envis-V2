@@ -204,6 +204,116 @@ export function iceAccretionImpact(mm: number): string {
   return "Trace glazing";
 }
 
+/**
+ * Rainfall intensity–duration (I–D) landslide threshold — Caine (1980).
+ *
+ *   I = 14.82 · D^-0.39
+ *
+ * I is rainfall intensity in mm/h, D is the storm duration in hours. This is the
+ * global minimum envelope below which rainfall-triggered shallow landslides have
+ * essentially never been documented; it is the baseline every regional threshold
+ * (Italy's SIGMA, Hong Kong's Geotechnical Engineering Office, USGS's Seattle/Bay
+ * Area systems) calibrates against. Valid for 0.1–500 h; shorter/longer durations
+ * are clamped to that range since the power law is not meant to extrapolate past it.
+ */
+export function caineIdThresholdMmPerHr(durationHours: number): number {
+  const d = Math.min(500, Math.max(0.1, durationHours));
+  return 14.82 * Math.pow(d, -0.39);
+}
+
+/**
+ * Rolling mean rainfall intensity (mm/h) over a trailing window of `windowHours`,
+ * for every index in an hourly precipitation series. Used to test forecast rainfall
+ * against the Caine I–D threshold at several durations simultaneously — a short,
+ * intense burst and a long, moderate soak can both cross their respective curves.
+ */
+export function rollingIntensityMmPerHr(hourlyPrecipMm: (number | null)[], windowHours: number): (number | null)[] {
+  const n = hourlyPrecipMm.length;
+  const out: (number | null)[] = new Array(n).fill(null);
+  const w = Math.max(1, Math.round(windowHours));
+  let sum = 0;
+  let count = 0;
+  for (let i = 0; i < n; i++) {
+    const v = hourlyPrecipMm[i];
+    if (typeof v === "number" && !isNaN(v)) {
+      sum += v;
+      count++;
+    }
+    const dropIdx = i - w;
+    if (dropIdx >= 0) {
+      const dv = hourlyPrecipMm[dropIdx];
+      if (typeof dv === "number" && !isNaN(dv)) {
+        sum -= dv;
+        count--;
+      }
+    }
+    const windowSoFar = Math.min(w, i + 1);
+    out[i] = count > 0 ? sum / windowSoFar : 0;
+  }
+  return out;
+}
+
+/**
+ * Typical effective-stress strength parameters for shallow colluvium/regolith by
+ * USDA texture class — the same classification `/api/soil` derives from ISRIC
+ * SoilGrids. Values are representative midpoints from standard geotechnical
+ * correlation tables (comparable to NAVFAC DM-7.01 / USDA-NRCS soil mechanics
+ * references) for near-surface, loose-to-firm material — not a site investigation,
+ * but far more grounded than an arbitrary weight.
+ */
+export function soilMechanicalParams(texture: string | undefined | null): {
+  cohesionKPa: number;
+  frictionAngleDeg: number;
+  unitWeightKNm3: number;
+} {
+  const table: Record<string, { cohesionKPa: number; frictionAngleDeg: number; unitWeightKNm3: number }> = {
+    Clay: { cohesionKPa: 10, frictionAngleDeg: 20, unitWeightKNm3: 19 },
+    "Clay loam": { cohesionKPa: 8, frictionAngleDeg: 24, unitWeightKNm3: 18.5 },
+    "Sandy clay loam": { cohesionKPa: 5, frictionAngleDeg: 27, unitWeightKNm3: 18 },
+    Loam: { cohesionKPa: 4, frictionAngleDeg: 28, unitWeightKNm3: 18 },
+    "Silt loam": { cohesionKPa: 3, frictionAngleDeg: 27, unitWeightKNm3: 17.5 },
+    Silt: { cohesionKPa: 2, frictionAngleDeg: 26, unitWeightKNm3: 17 },
+    "Loamy sand": { cohesionKPa: 1, frictionAngleDeg: 32, unitWeightKNm3: 17.5 },
+    Sand: { cohesionKPa: 0.5, frictionAngleDeg: 33, unitWeightKNm3: 17 },
+  };
+  return (texture && table[texture]) || { cohesionKPa: 4, frictionAngleDeg: 27, unitWeightKNm3: 18 }; // loam-like default
+}
+
+/**
+ * Infinite-slope factor of safety with parallel seepage — the physically-based
+ * model underlying USGS's TRIGRS and SHALSTAB shallow-landslide susceptibility
+ * systems (Montgomery & Dietrich 1994; Selby 1993).
+ *
+ *   FS = [c' + (γ·z − γw·m·z)·cos²β·tanφ'] / (γ·z·sinβ·cosβ)
+ *
+ * c' = effective cohesion (kPa), φ' = effective friction angle, γ = soil unit
+ * weight (kN/m³), z = soil depth (m), β = slope angle, m = fraction of the soil
+ * column that is saturated (0 = dry, 1 = fully saturated — this is where rainfall
+ * infiltration enters the model as reduced effective stress / pore pressure).
+ * FS > 1.5 is conventionally stable, FS < 1.0 means the driving stress already
+ * exceeds resisting strength under the assumed conditions.
+ */
+export function infiniteSlopeFactorOfSafety(params: {
+  slopeDeg: number;
+  cohesionKPa: number;
+  frictionAngleDeg: number;
+  unitWeightKNm3: number;
+  soilDepthM: number;
+  saturationFraction: number;
+}): number {
+  const GAMMA_WATER = 9.81; // kN/m^3
+  const beta = (Math.max(0.5, params.slopeDeg) * Math.PI) / 180;
+  const phi = (params.frictionAngleDeg * Math.PI) / 180;
+  const z = Math.max(0.1, params.soilDepthM);
+  const m = Math.max(0, Math.min(1, params.saturationFraction));
+  const gamma = params.unitWeightKNm3;
+
+  const driving = gamma * z * Math.sin(beta) * Math.cos(beta);
+  if (driving <= 0) return 10; // essentially flat ground — not meaningfully assessable, report as stable
+  const resisting = params.cohesionKPa + (gamma * z - GAMMA_WATER * m * z) * Math.cos(beta) ** 2 * Math.tan(phi);
+  return Math.max(0, resisting / driving);
+}
+
 /** Longest consecutive run where a predicate holds. */
 export function longestRun(values: (number | null)[], pred: (v: number) => boolean): number {
   let longest = 0;
