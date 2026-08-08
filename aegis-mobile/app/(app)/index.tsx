@@ -29,6 +29,7 @@ export default function NoticeBoardScreen() {
       const { data, error } = await supabase
         .from('alerts_view')
         .select('*')
+        .gt('expires_at', new Date().toISOString())
         .order('published_at', { ascending: false })
         .limit(50);
 

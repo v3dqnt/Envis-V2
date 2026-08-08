@@ -20,6 +20,7 @@ interface MapDashboardProps {
   hazardPolygons?: any;
   hazardOrigins?: any;
   hazardPaths?: any;
+  groundReportZones?: any;
   temperatureGridData?: any;
   showTemperatureHeatmap?: boolean;
 }
@@ -60,6 +61,7 @@ export default function MapDashboard({
   hazardPolygons,
   hazardOrigins,
   hazardPaths,
+  groundReportZones,
   temperatureGridData,
   showTemperatureHeatmap = false,
 }: MapDashboardProps) {
@@ -518,6 +520,55 @@ export default function MapDashboard({
         }
       });
 
+      // 5c. On-ground report — Tavily-sourced areas reported as currently or
+      // historically affected, geocoded and marked separately from the
+      // predictive polygons above. Current = solid red, historical = dashed steel-blue.
+      m.addSource('ground-report-source', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] }
+      });
+
+      m.addLayer({
+        id: 'ground-report-fill',
+        type: 'fill',
+        source: 'ground-report-source',
+        paint: {
+          'fill-color': ['match', ['get', 'status'], 'current', '#c1121f', '#669bbc'],
+          'fill-opacity': 0.22
+        }
+      });
+
+      m.addLayer({
+        id: 'ground-report-outline',
+        type: 'line',
+        source: 'ground-report-source',
+        paint: {
+          'line-color': ['match', ['get', 'status'], 'current', '#c1121f', '#669bbc'],
+          'line-width': 2,
+          'line-dasharray': ['match', ['get', 'status'], 'current', ['literal', [1, 0]], ['literal', [2, 1.5]]],
+          'line-opacity': 0.95
+        }
+      });
+
+      m.on('mousemove', 'ground-report-fill', () => { m.getCanvas().style.cursor = 'pointer'; });
+      m.on('mouseleave', 'ground-report-fill', () => { m.getCanvas().style.cursor = ''; });
+      m.on('click', 'ground-report-fill', (e: any) => {
+        const f = e.features?.[0];
+        if (!f) return;
+        const p = f.properties || {};
+        new maplibregl.Popup({ closeButton: true, maxWidth: '280px' })
+          .setLngLat(e.lngLat)
+          .setHTML(
+            `<div style="font-family:system-ui;font-size:11px;line-height:1.45">
+               <div style="font-weight:800;margin-bottom:3px">${p.hazardType || 'Hazard'} · ${String(p.status || '').toUpperCase()}</div>
+               ${p.areaName ? `<div style="font-weight:600;margin-bottom:2px">${p.areaName}</div>` : ''}
+               <div style="color:#669bbc">${p.summary || ''}</div>
+               ${p.sourceUrl ? `<a href="${p.sourceUrl}" target="_blank" rel="noopener noreferrer" style="color:#4a6573;font-size:10px">${p.sourceTitle || 'source'}</a>` : ''}
+             </div>`
+          )
+          .addTo(m);
+      });
+
       // Add hover popup for vulnerability zones
       m.on('mousemove', 'vulnerability-zones-high', () => { m.getCanvas().style.cursor = 'pointer'; });
       m.on('mousemove', 'vulnerability-zones-medium', () => { m.getCanvas().style.cursor = 'pointer'; });
@@ -946,6 +997,15 @@ export default function MapDashboard({
         pathsSource.setData(hasPaths ? hazardPaths : { type: 'FeatureCollection', features: [] });
         if (m.getLayer('hazard-paths')) m.setLayoutProperty('hazard-paths', 'visibility', hasPaths ? 'visible' : 'none');
       }
+
+      // 6b. Update on-ground report zones (Tavily-sourced current/historical areas)
+      const groundReportSource = m.getSource('ground-report-source') as maplibregl.GeoJSONSource;
+      if (groundReportSource) {
+        const hasReport = groundReportZones && groundReportZones.features && groundReportZones.features.length > 0;
+        groundReportSource.setData(hasReport ? groundReportZones : { type: 'FeatureCollection', features: [] });
+        if (m.getLayer('ground-report-fill')) m.setLayoutProperty('ground-report-fill', 'visibility', hasReport ? 'visible' : 'none');
+        if (m.getLayer('ground-report-outline')) m.setLayoutProperty('ground-report-outline', 'visibility', hasReport ? 'visible' : 'none');
+      }
     };
 
     if (m.isStyleLoaded()) {
@@ -953,7 +1013,7 @@ export default function MapDashboard({
     } else {
       m.once('idle', updateLayers);
     }
-  }, [hazardCenter, hazardRadius, routeGeoJSON, bypassRouteGeoJSON, evacuationPoints, activeDefenses, vulnerabilityZones, hazardPolygons, hazardOrigins, hazardPaths]);
+  }, [hazardCenter, hazardRadius, routeGeoJSON, bypassRouteGeoJSON, evacuationPoints, activeDefenses, vulnerabilityZones, hazardPolygons, hazardOrigins, hazardPaths, groundReportZones]);
 
   // Temperature Heatmap update effect — separate from other layers for clarity
   useEffect(() => {

@@ -62,6 +62,7 @@ interface PreventionSidebarProps {
   setHazardPolygons?: (polys: any) => void;
   setHazardOrigins?: (origins: any) => void;
   setHazardPaths?: (paths: any) => void;
+  setGroundReportZones?: (zones: any) => void;
   showTemperatureHeatmap?: boolean;
   setShowTemperatureHeatmap?: (v: boolean) => void;
   temperatureHeatmapLoading?: boolean;
@@ -142,6 +143,29 @@ const RISK_TO_INCIDENT: Record<string, string> = {
 // elevation + weather). Everything else falls back to AI-estimated circular zones.
 const POLYGON_MODELLED = new Set(["Wildfire", "Flooding", "Landslide", "Thunderstorm", "Tropical Cyclone"]);
 
+// Hazards with a Tavily-backed on-ground report (/api/hazard-research) — matches the
+// hazard set that route understands search phrasing for.
+const GROUND_REPORT_HAZARDS = new Set(["Wildfire", "Flooding", "Flash Flood", "Blizzard", "Landslide"]);
+
+interface GroundReportItem {
+  areaName: string;
+  status: "current" | "historical";
+  severity: "high" | "medium" | "low";
+  summary: string;
+  sourceUrl: string;
+  sourceTitle: string;
+  lat: number;
+  lng: number;
+}
+
+interface GroundReport {
+  loading: boolean;
+  fetched: boolean;
+  items: GroundReportItem[];
+  zones: any[];
+  error: string | null;
+}
+
 interface HazardAnalysis {
   loading: boolean;
   analyzed: boolean;
@@ -154,6 +178,7 @@ interface HazardAnalysis {
   strategyMarkdown: string;
   checklist: string[];
   metrics: { infrastructure: number; residential: number; evacuationReadiness: number } | null;
+  groundReport: GroundReport | null;
 }
 
 function getDistanceKm(a: [number, number], b: [number, number]): number {
@@ -441,6 +466,7 @@ export default function PreventionSidebar({
   incidentType,
   setVulnerabilityZones,
   setHazardPolygons,
+  setGroundReportZones,
   setHazardOrigins,
   setHazardPaths,
   showTemperatureHeatmap = false,
@@ -565,11 +591,12 @@ export default function PreventionSidebar({
     if (!hazardCenter) return;
     setHazardAnalyses((prev) => ({
       ...prev,
-      [hazardType]: { ...(prev[hazardType] as HazardAnalysis), loading: true, error: null, analyzed: prev[hazardType]?.analyzed || false, zones: prev[hazardType]?.zones || [], polygons: prev[hazardType]?.polygons || [], zoneSource: prev[hazardType]?.zoneSource || null, origin: prev[hazardType]?.origin || null, path: prev[hazardType]?.path || null, strategyMarkdown: prev[hazardType]?.strategyMarkdown || "", checklist: prev[hazardType]?.checklist || [], metrics: prev[hazardType]?.metrics || null },
+      [hazardType]: { ...(prev[hazardType] as HazardAnalysis), loading: true, error: null, analyzed: prev[hazardType]?.analyzed || false, zones: prev[hazardType]?.zones || [], polygons: prev[hazardType]?.polygons || [], zoneSource: prev[hazardType]?.zoneSource || null, origin: prev[hazardType]?.origin || null, path: prev[hazardType]?.path || null, strategyMarkdown: prev[hazardType]?.strategyMarkdown || "", checklist: prev[hazardType]?.checklist || [], metrics: prev[hazardType]?.metrics || null, groundReport: prev[hazardType]?.groundReport || null },
     }));
 
     const origin = resolveOrigin(hazardType);
     const usePolygons = POLYGON_MODELLED.has(hazardType);
+    const useGroundReport = GROUND_REPORT_HAZARDS.has(hazardType);
 
     try {
       const [polyRes, vulnRes, prevRes] = await Promise.all([
@@ -648,9 +675,46 @@ export default function PreventionSidebar({
           strategyMarkdown: prevData.strategyMarkdown || "",
           checklist: prevData.checklist || [],
           metrics: prevData.vulnerabilityMetrics || null,
+          groundReport: useGroundReport ? { loading: true, fetched: false, items: [], zones: [], error: null } : null,
         },
       }));
       setVisibleHazards((prev) => new Set(prev).add(hazardType));
+
+      // Fires independently of the analysis above — it hits Tavily + an LLM +
+      // geocoding, so it's the slowest call here and shouldn't hold up the rest
+      // of the hazard card, which is why it's not in the Promise.all above.
+      if (useGroundReport) {
+        fetch("/api/hazard-research", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            lat: hazardCenter[1],
+            lng: hazardCenter[0],
+            hazardType,
+            cityName: cityName || "the target location",
+          }),
+        })
+          .then((res) => (res.ok ? res.json() : Promise.reject(new Error(`HTTP ${res.status}`))))
+          .then((data) => {
+            setHazardAnalyses((prev) => ({
+              ...prev,
+              [hazardType]: {
+                ...(prev[hazardType] as HazardAnalysis),
+                groundReport: { loading: false, fetched: true, items: data.items || [], zones: data.zones || [], error: null },
+              },
+            }));
+          })
+          .catch((err) => {
+            console.error(`Ground report failed for ${hazardType}:`, err);
+            setHazardAnalyses((prev) => ({
+              ...prev,
+              [hazardType]: {
+                ...(prev[hazardType] as HazardAnalysis),
+                groundReport: { loading: false, fetched: true, items: [], zones: [], error: "On-ground search failed" },
+              },
+            }));
+          });
+      }
     } catch (err) {
       console.error(`Failed to analyze ${hazardType}:`, err);
       setHazardAnalyses((prev) => ({
@@ -686,12 +750,14 @@ export default function PreventionSidebar({
     const polygonFeatures: any[] = [];
     const originFeatures: any[] = [];
     const pathFeatures: any[] = [];
+    const groundReportFeatures: any[] = [];
 
     visibleHazards.forEach((type) => {
       const a = hazardAnalyses[type];
       if (!a || !a.analyzed) return;
       zoneFeatures.push(...a.zones);
       polygonFeatures.push(...(a.polygons || []));
+      if (a.groundReport?.zones?.length) groundReportFeatures.push(...a.groundReport.zones);
       if (a.origin) {
         originFeatures.push({
           type: "Feature",
@@ -712,6 +778,7 @@ export default function PreventionSidebar({
     setHazardPolygons?.(polygonFeatures.length ? { type: "FeatureCollection", features: polygonFeatures } : null);
     setHazardOrigins?.(originFeatures.length ? { type: "FeatureCollection", features: originFeatures } : null);
     setHazardPaths?.(pathFeatures.length ? { type: "FeatureCollection", features: pathFeatures } : null);
+    setGroundReportZones?.(groundReportFeatures.length ? { type: "FeatureCollection", features: groundReportFeatures } : null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hazardAnalyses, visibleHazards]);
 
@@ -1142,6 +1209,89 @@ export default function PreventionSidebar({
                                         {analysis.strategyMarkdown.replace(/^#+\s*/gm, "").replace(/^[-*]\s*/gm, "• ")}
                                       </Text>
                                     </div>
+                                  )}
+
+                                  {analysis.groundReport && (
+                                    <VStack gap={1.5}>
+                                      <HStack gap={1.5} vAlign="center">
+                                        <Radio className="w-3 h-3" style={{ color: "#669bbc" }} />
+                                        <Text type="supporting" size="3xs" weight="bold" style={{ color: "#669bbc" }}>
+                                          ON-GROUND REPORT
+                                        </Text>
+                                        {analysis.groundReport.loading && <Loader2 className="w-3 h-3 animate-spin" style={{ color: "#669bbc" }} />}
+                                      </HStack>
+
+                                      {analysis.groundReport.loading && (
+                                        <Text type="supporting" size="3xs" style={{ color: "#4a6573" }}>
+                                          Searching the web for affected areas...
+                                        </Text>
+                                      )}
+
+                                      {analysis.groundReport.error && (
+                                        <Text type="supporting" size="3xs" color="accent">{analysis.groundReport.error}</Text>
+                                      )}
+
+                                      {!analysis.groundReport.loading && !analysis.groundReport.error && analysis.groundReport.fetched && analysis.groundReport.items.length === 0 && (
+                                        <Text type="supporting" size="3xs" style={{ color: "#4a6573" }}>
+                                          No specific affected areas found in recent or historical reporting.
+                                        </Text>
+                                      )}
+
+                                      {analysis.groundReport.items.length > 0 && (
+                                        <div className="max-h-[220px] overflow-y-auto">
+                                          <VStack gap={1.5}>
+                                            {analysis.groundReport.items.map((item, idx) => (
+                                              <div
+                                                key={idx}
+                                                style={{
+                                                  background: "#001d2e",
+                                                  border: `1px solid ${item.status === "current" ? "#c1121f4D" : "#669bbc26"}`,
+                                                  borderRadius: "0.5rem",
+                                                  padding: "0.5rem",
+                                                  cursor: "pointer",
+                                                }}
+                                                onClick={() => setMapFlyToCoords([item.lng, item.lat])}
+                                              >
+                                                <HStack hAlign="between" vAlign="center">
+                                                  <HStack gap={1.5} vAlign="center">
+                                                    <span
+                                                      style={{
+                                                        width: 6,
+                                                        height: 6,
+                                                        borderRadius: "50%",
+                                                        flexShrink: 0,
+                                                        background: item.status === "current" ? "#c1121f" : "#669bbc",
+                                                      }}
+                                                    />
+                                                    <Text type="supporting" size="3xs" weight="bold" style={{ color: "#fdf0d5" }}>
+                                                      {item.areaName}
+                                                    </Text>
+                                                  </HStack>
+                                                  <Badge
+                                                    variant={item.status === "current" ? "red" : "neutral"}
+                                                    label={item.status === "current" ? "current" : "historical"}
+                                                  />
+                                                </HStack>
+                                                <Text type="supporting" size="3xs" style={{ color: "#669bbc", display: "block", marginTop: "0.2rem" }}>
+                                                  {item.summary}
+                                                </Text>
+                                                {item.sourceUrl && (
+                                                  <a
+                                                    href={item.sourceUrl}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                    style={{ fontSize: "9px", color: "#4a6573", textDecoration: "underline" }}
+                                                  >
+                                                    {item.sourceTitle || "source"}
+                                                  </a>
+                                                )}
+                                              </div>
+                                            ))}
+                                          </VStack>
+                                        </div>
+                                      )}
+                                    </VStack>
                                   )}
 
                                   <HStack gap={1.5}>

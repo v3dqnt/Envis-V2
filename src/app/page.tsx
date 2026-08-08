@@ -65,6 +65,7 @@ export default function Home() {
   const [hazardPolygons, setHazardPolygons] = useState<any>(null);
   const [hazardOrigins, setHazardOrigins] = useState<any>(null);
   const [hazardPaths, setHazardPaths] = useState<any>(null);
+  const [groundReportZones, setGroundReportZones] = useState<any>(null);
 
   // Lifted disaster type state to keep all sidebars and right panel in sync
   const [incidentType, setIncidentType] = useState<string>("Wildfire");
@@ -375,6 +376,7 @@ export default function Home() {
             setHazardPolygons={setHazardPolygons}
             setHazardOrigins={setHazardOrigins}
             setHazardPaths={setHazardPaths}
+            setGroundReportZones={setGroundReportZones}
             showTemperatureHeatmap={showTemperatureHeatmap}
             setShowTemperatureHeatmap={setShowTemperatureHeatmap}
             temperatureHeatmapLoading={temperatureHeatmapLoading}
@@ -417,6 +419,7 @@ export default function Home() {
         hazardPolygons={hazardPolygons}
         hazardOrigins={hazardOrigins}
         hazardPaths={hazardPaths}
+        groundReportZones={groundReportZones}
           temperatureGridData={showTemperatureHeatmap ? temperatureGridData : null}
           showTemperatureHeatmap={showTemperatureHeatmap}
         />
