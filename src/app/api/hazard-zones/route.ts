@@ -33,21 +33,41 @@ const OVERPASS_MIRRORS = [
   "https://overpass.private.coffee/api/interpreter",
 ];
 
+// A hung/overloaded mirror can otherwise stall a request for well over a minute before
+// the platform's own default timeout kicks in (observed: 114s on a single mirror during
+// testing). Each mirror gets a hard budget; a slow one is abandoned in favour of the next
+// rather than left to hang the whole analysis.
+const MIRROR_TIMEOUT_MS = 8_000;
+
+async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function runOverpass(query: string): Promise<OverpassElement[]> {
   for (const url of OVERPASS_MIRRORS) {
     try {
       // Overpass expects the query as a URL-encoded `data` form field, and rejects
       // requests without an identifying User-Agent (406). Public mirrors also
       // rate-limit aggressively (429), hence the rotation.
-      const res = await fetch(url, {
-        method: "POST",
-        body: `data=${encodeURIComponent(query)}`,
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          "User-Agent": "Envis-Aegis/1.0 (climate resilience mapping)",
+      const res = await fetchWithTimeout(
+        url,
+        {
+          method: "POST",
+          body: `data=${encodeURIComponent(query)}`,
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "User-Agent": "Envis-Aegis/1.0 (climate resilience mapping)",
+          },
+          cache: "no-store",
         },
-        cache: "no-store",
-      });
+        MIRROR_TIMEOUT_MS
+      );
       if (!res.ok) {
         console.log(`[hazard-zones] ${url} -> HTTP ${res.status}`);
         continue;
@@ -62,11 +82,44 @@ async function runOverpass(query: string): Promise<OverpassElement[]> {
       console.log(`[hazard-zones] ${url} -> ${elements.length} elements`);
       if (elements.length > 0) return elements;
     } catch (err: any) {
-      console.log(`[hazard-zones] ${url} -> ${err.message}`);
+      const reason = err?.name === "AbortError" ? `timed out after ${MIRROR_TIMEOUT_MS}ms` : err.message;
+      console.log(`[hazard-zones] ${url} -> ${reason}`);
       continue;
     }
   }
   return [];
+}
+
+// In-memory response cache. Overpass/elevation/weather calls here are the slowest and
+// most rate-limit-prone part of the app, and re-analyzing the same location (or two
+// judges/users looking at the same city) previously re-ran all of them from scratch
+// every time. Keyed on rounded coordinates so nearby clicks share a cache entry.
+// Process-lifetime only — resets on redeploy, which is an acceptable tradeoff for the
+// quota/latency it saves versus the complexity of a real cache backend.
+const RESULT_CACHE_TTL_MS = 20 * 60 * 1000;
+const resultCache = new Map<string, { expires: number; body: any }>();
+
+function cacheKey(hazardType: string, lat: number, lng: number, radiusKm: number): string {
+  return `${hazardType}:${lat.toFixed(2)}:${lng.toFixed(2)}:${radiusKm}`;
+}
+
+function getCached(key: string): any | null {
+  const entry = resultCache.get(key);
+  if (!entry) return null;
+  if (Date.now() > entry.expires) {
+    resultCache.delete(key);
+    return null;
+  }
+  return entry.body;
+}
+
+function setCached(key: string, body: any) {
+  resultCache.set(key, { expires: Date.now() + RESULT_CACHE_TTL_MS, body });
+  // Simple unbounded-growth guard — this is a demo-scale cache, not a production LRU.
+  if (resultCache.size > 500) {
+    const oldestKey = resultCache.keys().next().value;
+    if (oldestKey) resultCache.delete(oldestKey);
+  }
 }
 
 function bbox(lat: number, lng: number, radiusKm: number) {
@@ -209,6 +262,17 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "lat, lng, hazardType required" }, { status: 400 });
   }
 
+  const key = cacheKey(hazardType, lat, lng, radiusKm);
+  const cached = getCached(key);
+  if (cached) {
+    return NextResponse.json({ ...cached, cached: true });
+  }
+
+  function respond(body: any) {
+    setCached(key, body);
+    return NextResponse.json(body);
+  }
+
   const b = bbox(lat, lng, radiusKm);
   const bboxStr = `${b.south},${b.west},${b.north},${b.east}`;
   const weather = await fetchWeatherContext(lat, lng);
@@ -268,7 +332,7 @@ out geom 220;`);
       .sort((a: any, z: any) => z.properties.score - a.properties.score)
       .slice(0, 120);
 
-    return NextResponse.json({
+    return respond({
       hazardType,
       source: fuel ? "osm+sentinel2+weather" : "osm+weather",
       method: fuel
@@ -355,7 +419,7 @@ out geom 200;`);
       .sort((a: any, z: any) => z.properties.score - a.properties.score)
       .slice(0, 100);
 
-    return NextResponse.json({
+    return respond({
       hazardType,
       source: "osm+elevation+weather",
       method: "OSM reservoirs/water bodies/river corridors, scored by recent rainfall and elevation relative to local terrain",
@@ -418,7 +482,7 @@ out geom 120;`);
       });
 
     if (candidates.length === 0) {
-      return NextResponse.json({
+      return respond({
         hazardType,
         source: "osm+elevation+weather",
         method: "Road underpasses, tunnels and culverts scored by depth below surrounding grade and live soil saturation",
@@ -500,7 +564,7 @@ out geom 120;`);
       })
       .sort((a: any, z: any) => z.properties.score - a.properties.score);
 
-    return NextResponse.json({
+    return respond({
       hazardType,
       source: "osm+elevation+weather",
       method: "Road underpasses, tunnels and culverts scored by structure type, live soil saturation and recent rainfall",
@@ -651,7 +715,7 @@ out geom 120;`);
 
     zones.sort((a, z) => z.properties.score - a.properties.score);
 
-    return NextResponse.json({
+    return respond({
       hazardType,
       source: terrainSource ? "elevation+copernicus-dem+soil+weather" : "elevation+weather",
       method: terrainSource
