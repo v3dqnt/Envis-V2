@@ -11,6 +11,7 @@ A real-time disaster intelligence platform built with Next.js 16 + MapLibre GL. 
 | **Mobile Alert Delivery** | Supabase/PostGIS backend matching published hazard alerts against a device's current location and saved commute points — see [Mobile Alert Delivery](#mobile-alert-delivery-supabase-backed) and [Agent instructions](#agent-instructions-wiring-alert-delivery-into-the-mobile-app) below |
 | **Evacuation Route Transmission** | Pushes the computed road route (direct + hazard-bypassing detour) and shelters to phones, so the warning arrives with the way out — see [Evacuation Route Transmission](#evacuation-route-transmission) |
 | **Continuous Forecast Broadcast** | Scheduled job that re-runs the 72h forecast wherever devices are registered and publishes, updates or withdraws alerts automatically — see [Continuous Forecast Broadcast](#continuous-forecast-broadcast) |
+| **Auto Jobs** | Watch a named target area on a schedule; crossing a temperature or precipitation threshold raises a suggestion for a human to review and publish, rather than auto-publishing — see [Auto Jobs](#auto-jobs-target-area-monitoring) |
 
 ---
 
@@ -52,8 +53,9 @@ OpenStreetMap via Overpass, ISRIC SoilGrids, GDACS and USGS.
    - `0001_init.sql` — PostGIS, devices, locations, commute points, alerts
    - `0002_evacuation_routes.sql` — evacuation route geometry and shelters
    - `0003_forecast_broadcast.sql` — dedupe key and broadcast run history
+   - `0004_target_areas.sql` — Auto Jobs target areas, suggestions, and monitor run history
 3. Copy the project URL and the `service_role` key (Project Settings → API) into `.env.local`.
-4. Without these two variables, every `/api/devices/*`, `/api/alerts/*` and `/api/forecast/broadcast` route returns `503` with a setup note instead of failing — the rest of the app is unaffected.
+4. Without these two variables, every `/api/devices/*`, `/api/alerts/*`, `/api/forecast/broadcast` and `/api/target-areas/*` route returns `503` with a setup note instead of failing — the rest of the app is unaffected.
 
 ---
 
@@ -486,6 +488,49 @@ jobs:
         env:
           URL: ${{ secrets.DEPLOY_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
+```
+
+---
+
+## Auto Jobs (target-area monitoring)
+
+Continuous Forecast Broadcast watches wherever devices happen to be. Auto Jobs is for the place nobody's phone is currently sitting in but an operator still wants watched — a named target area that's monitored on a schedule, reusing the same climatological risk signals `/api/weather-risk` already computes (Heatwave's temperature anomaly, Flooding's precipitation-vs-history anomaly). Crossing a threshold never auto-publishes anything; it raises a **suggestion** in the dashboard's Notification Panel for a human to review and, if they agree, publish.
+
+| Rule | Watches | Flags |
+|---|---|---|
+| `heat` | Heatwave risk (temperature anomaly) | Heatwave + Wildfire |
+| `precip` | Flooding risk (precipitation anomaly vs. history) | Landslide + Flash Flood |
+
+### `GET /api/target-areas` · `POST /api/target-areas` · `DELETE /api/target-areas?id=...`
+
+CRUD for the watchlist. `POST` body: `{ name, lat, lng, cityName? }`.
+
+### `POST /api/target-areas/monitor`
+
+The scheduled scan: loads active target areas, checks each against the rules above, and upserts a suggestion keyed on `dedupe_key` (`targetarea:<areaId>:<ruleId>`) so a still-active condition doesn't generate a fresh row every run — same idempotency idiom as `dedupe_key` on `alerts`. `CRON_SECRET`-protected exactly like `/api/forecast/broadcast`.
+
+**Response**
+```json
+{ "ok": true, "areasScanned": 4, "suggestionsCreated": 1 }
+```
+
+### `GET /api/target-areas/monitor`
+
+Recent run history from `target_area_runs` — same "quiet vs. stopped" observability as `broadcast_runs`.
+
+### `GET /api/target-areas/suggestions?status=pending` · `PATCH /api/target-areas/suggestions`
+
+Feeds the Notification Panel. `PATCH` body: `{ id, status: "published" | "dismissed", publishedAlertId? }` — set by the panel's Publish/Dismiss actions. Publishing itself goes through the existing `/api/alerts/publish`; this route only updates the suggestion's own status afterward.
+
+### Scheduling it
+
+Same pattern as Continuous Forecast Broadcast — add a second cron entry:
+
+```json
+{ "crons": [
+  { "path": "/api/forecast/broadcast", "schedule": "0 * * * *" },
+  { "path": "/api/target-areas/monitor", "schedule": "0 * * * *" }
+] }
 ```
 
 ---

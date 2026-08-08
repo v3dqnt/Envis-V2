@@ -371,22 +371,22 @@ async function getRouteData(coords: [number, number][]) {
 
 // Hazard classification grid — icon + Astryx hue token per type
 const HAZARD_OPTIONS: { type: string; icon: React.ReactNode }[] = [
-  { type: "Wildfire", icon: <Flame className="w-4 h-4 text-orange-vivid" /> },
-  { type: "Flooding", icon: <Waves className="w-4 h-4 text-blue-vivid" /> },
-  { type: "Flash Flood", icon: <Waves className="w-4 h-4 text-cyan-vivid" /> },
-  { type: "Toxic Plume", icon: <Skull className="w-4 h-4 text-green-vivid" /> },
-  { type: "Earthquake", icon: <Activity className="w-4 h-4 text-yellow-vivid" /> },
-  { type: "Tornado", icon: <Wind className="w-4 h-4 text-teal-vivid" /> },
-  { type: "Radiation Leak", icon: <Radiation className="w-4 h-4 text-yellow-vivid" /> },
-  { type: "Chemical Spill", icon: <Biohazard className="w-4 h-4 text-yellow-vivid" /> },
-  { type: "Blizzard", icon: <Snowflake className="w-4 h-4 text-cyan-vivid" /> },
-  { type: "Ice Storm", icon: <Snowflake className="w-4 h-4 text-cyan-vivid" /> },
-  { type: "Volcanic Eruption", icon: <Mountain className="w-4 h-4 text-red-vivid" /> },
-  { type: "Tropical Cyclone", icon: <Tornado className="w-4 h-4 text-cyan-vivid" /> },
-  { type: "Heatwave", icon: <Thermometer className="w-4 h-4 text-red-vivid" /> },
-  { type: "Drought", icon: <Sun className="w-4 h-4 text-yellow-vivid" /> },
-  { type: "Extreme Cold", icon: <ThermometerSnowflake className="w-4 h-4 text-blue-vivid" /> },
-  { type: "Thunderstorm", icon: <CloudLightning className="w-4 h-4 text-purple-vivid" /> },
+  { type: "Wildfire", icon: <Flame className="w-4 h-4 text-gray-vivid" /> },
+  { type: "Flooding", icon: <Waves className="w-4 h-4 text-gray-vivid" /> },
+  { type: "Flash Flood", icon: <Waves className="w-4 h-4 text-gray-vivid" /> },
+  { type: "Toxic Plume", icon: <Skull className="w-4 h-4 text-gray-vivid" /> },
+  { type: "Earthquake", icon: <Activity className="w-4 h-4 text-gray-vivid" /> },
+  { type: "Tornado", icon: <Wind className="w-4 h-4 text-gray-vivid" /> },
+  { type: "Radiation Leak", icon: <Radiation className="w-4 h-4 text-gray-vivid" /> },
+  { type: "Chemical Spill", icon: <Biohazard className="w-4 h-4 text-gray-vivid" /> },
+  { type: "Blizzard", icon: <Snowflake className="w-4 h-4 text-gray-vivid" /> },
+  { type: "Ice Storm", icon: <Snowflake className="w-4 h-4 text-gray-vivid" /> },
+  { type: "Volcanic Eruption", icon: <Mountain className="w-4 h-4 text-gray-vivid" /> },
+  { type: "Tropical Cyclone", icon: <Tornado className="w-4 h-4 text-gray-vivid" /> },
+  { type: "Heatwave", icon: <Thermometer className="w-4 h-4 text-gray-vivid" /> },
+  { type: "Drought", icon: <Sun className="w-4 h-4 text-gray-vivid" /> },
+  { type: "Extreme Cold", icon: <ThermometerSnowflake className="w-4 h-4 text-gray-vivid" /> },
+  { type: "Thunderstorm", icon: <CloudLightning className="w-4 h-4 text-gray-vivid" /> },
   { type: "Landslide", icon: <MountainSnow className="w-4 h-4 text-gray-vivid" /> },
 ];
 
@@ -987,37 +987,37 @@ export default function RoutingSidebar({
   const getIncidentIcon = () => {
     switch (incidentType) {
       case "Wildfire":
-        return <Flame className="w-5 h-5 text-orange-vivid" />;
+        return <Flame className="w-5 h-5 text-gray-vivid" />;
       case "Flooding":
-        return <Waves className="w-5 h-5 text-blue-vivid" />;
+        return <Waves className="w-5 h-5 text-gray-vivid" />;
       case "Chemical Spill":
-        return <Biohazard className="w-5 h-5 text-yellow-vivid" />;
+        return <Biohazard className="w-5 h-5 text-gray-vivid" />;
       case "Toxic Plume":
-        return <Skull className="w-5 h-5 text-green-vivid" />;
+        return <Skull className="w-5 h-5 text-gray-vivid" />;
       case "Earthquake":
-        return <Activity className="w-5 h-5 text-yellow-vivid" />;
+        return <Activity className="w-5 h-5 text-gray-vivid" />;
       case "Tornado":
-        return <Wind className="w-5 h-5 text-teal-vivid" />;
+        return <Wind className="w-5 h-5 text-gray-vivid" />;
       case "Radiation Leak":
-        return <Radiation className="w-5 h-5 text-yellow-vivid" />;
+        return <Radiation className="w-5 h-5 text-gray-vivid" />;
       case "Blizzard":
-        return <Snowflake className="w-5 h-5 text-cyan-vivid" />;
+        return <Snowflake className="w-5 h-5 text-gray-vivid" />;
       case "Volcanic Eruption":
-        return <Mountain className="w-5 h-5 text-red-vivid" />;
+        return <Mountain className="w-5 h-5 text-gray-vivid" />;
       case "Tropical Cyclone":
-        return <Tornado className="w-5 h-5 text-cyan-vivid" />;
+        return <Tornado className="w-5 h-5 text-gray-vivid" />;
       case "Heatwave":
-        return <Thermometer className="w-5 h-5 text-red-vivid" />;
+        return <Thermometer className="w-5 h-5 text-gray-vivid" />;
       case "Drought":
-        return <Sun className="w-5 h-5 text-yellow-vivid" />;
+        return <Sun className="w-5 h-5 text-gray-vivid" />;
       case "Extreme Cold":
-        return <ThermometerSnowflake className="w-5 h-5 text-blue-vivid" />;
+        return <ThermometerSnowflake className="w-5 h-5 text-gray-vivid" />;
       case "Thunderstorm":
-        return <CloudLightning className="w-5 h-5 text-purple-vivid" />;
+        return <CloudLightning className="w-5 h-5 text-gray-vivid" />;
       case "Landslide":
         return <MountainSnow className="w-5 h-5 text-gray-vivid" />;
       default:
-        return <AlertTriangle className="w-5 h-5 text-yellow-vivid" />;
+        return <AlertTriangle className="w-5 h-5 text-gray-vivid" />;
     }
   };
 
@@ -1052,9 +1052,9 @@ export default function RoutingSidebar({
                   {tab === "hazard" && (
                     <VStack gap={4}>
                       <div className="section-accent">
-                        <Text type="body" weight="bold" style={{ color: "#fdf0d5" }}>Disaster classification</Text>
+                        <Text type="body" weight="bold" style={{ color: "var(--color-text-primary)" }}>Disaster classification</Text>
                       </div>
-                      <Card variant="muted" padding={3} style={{ background: "#001d2e", border: "1px solid #669bbc33", borderRadius: "0.625rem" }}>
+                      <Card variant="muted" padding={3} style={{ background: "var(--color-background-body)", border: "1px solid rgba(163,163,163,0.20)", borderRadius: "0.625rem" }}>
                           <ToggleButtonGroup
                             label="Disaster classification"
                             type="single"
@@ -1115,10 +1115,10 @@ export default function RoutingSidebar({
                             formatValue={(v) => `${v}m (${(v / 1000).toFixed(1)} km)`}
                           />
 
-                          <Card variant="default" elevation="none" padding={3} style={{ background: "#002438", border: "1px solid #669bbc33" }}>
+                          <Card variant="default" elevation="none" padding={3} style={{ background: "var(--color-background-surface)", border: "1px solid rgba(163,163,163,0.20)" }}>
                             <MetadataList columns="single">
-                              <MetadataListItem label="Identified city" style={{ color: "#669bbc" }}>{cityName || "Resolving..."}</MetadataListItem>
-                              <MetadataListItem label="Population density" style={{ color: "#669bbc" }}>
+                              <MetadataListItem label="Identified city" style={{ color: "var(--color-text-secondary)" }}>{cityName || "Resolving..."}</MetadataListItem>
+                              <MetadataListItem label="Population density" style={{ color: "var(--color-text-secondary)" }}>
                                 {densityLoading ? "Loading..." : densityPerKm2 ? `${densityPerKm2.toLocaleString()} ppl/km²` : "Loading..."}
                               </MetadataListItem>
                               <MetadataListItem label="Estimated impacted population">
@@ -1159,7 +1159,7 @@ export default function RoutingSidebar({
                         <VStack gap={2}>
                           <div className="divider-palette" />
                           <div className="section-accent-blue">
-                            <Text type="supporting" weight="bold" style={{ color: "#fdf0d5" }}>Recommended evacuation shelters</Text>
+                            <Text type="supporting" weight="bold" style={{ color: "var(--color-text-primary)" }}>Recommended evacuation shelters</Text>
                           </div>
                           <div className="max-h-[160px] overflow-y-auto">
                             <VStack gap={1}>
@@ -1218,7 +1218,7 @@ export default function RoutingSidebar({
 
                         {facilitiesLoading ? (
                           <HStack gap={2} hAlign="center" style={{ padding: "1.5rem 0" }}>
-                            <Loader2 className="w-4 h-4 animate-spin text-blue-vivid" />
+                            <Loader2 className="w-4 h-4 animate-spin text-gray-vivid" />
                             <Text type="supporting">Locating emergency facilities...</Text>
                           </HStack>
                         ) : !hazardCenter ? (
@@ -1280,9 +1280,9 @@ export default function RoutingSidebar({
                         {bypassRouteGeoJSON ? (
                           <Card variant="green" padding={3} width="100%">
                             <VStack gap={0.5}>
-                              <Text type="supporting" size="3xs" weight="bold" style={{ color: "#669bbc" }}>Detour path</Text>
+                              <Text type="supporting" size="3xs" weight="bold" style={{ color: "var(--color-text-secondary)" }}>Detour path</Text>
                               <Text type="body" weight="bold">{bypassRouteGeoJSON.properties.distance.toFixed(2)} km</Text>
-                              <Text type="supporting" size="3xs" style={{ color: "#4a6573" }}>~ {Math.round(bypassRouteGeoJSON.properties.duration)} mins</Text>
+                              <Text type="supporting" size="3xs" style={{ color: "var(--color-text-disabled)" }}>~ {Math.round(bypassRouteGeoJSON.properties.duration)} mins</Text>
                             </VStack>
                           </Card>
                         ) : (
@@ -1290,7 +1290,7 @@ export default function RoutingSidebar({
                             <VStack gap={0.5} hAlign="center">
                               <HStack gap={1.5} vAlign="center">
                                 <CheckCircle2 className="w-4 h-4" />
-                                <Text type="supporting" weight="bold" style={{ color: "#669bbc" }}>Direct route safe</Text>
+                                <Text type="supporting" weight="bold" style={{ color: "var(--color-text-secondary)" }}>Direct route safe</Text>
                               </HStack>
                               <Text type="supporting" size="3xs">No detour required.</Text>
                             </VStack>
@@ -1320,7 +1320,7 @@ export default function RoutingSidebar({
                             <HStack hAlign="between">
                               <HStack gap={1} vAlign="center">
                                 <Compass className="w-3.5 h-3.5" />
-                                <Text type="supporting" weight="bold" style={{ color: "#fdf0d5" }}>TomTom live traffic incidents</Text>
+                                <Text type="supporting" weight="bold" style={{ color: "var(--color-text-primary)" }}>TomTom live traffic incidents</Text>
                               </HStack>
                               <Badge variant="orange" label={String(routeGeoJSON.properties.incidents.length)} />
                             </HStack>
@@ -1346,7 +1346,7 @@ export default function RoutingSidebar({
 
                       {routeGeoJSON.properties.isTomTom && (
                         <HStack gap={1.5} vAlign="center" hAlign="end">
-                          <span className="w-1.5 h-1.5 rounded-full bg-green-vivid animate-pulse" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-gray-vivid animate-pulse" />
                           <Text type="supporting" size="3xs" weight="bold">Real-time traffic provided by TomTom API</Text>
                         </HStack>
                       )}
@@ -1398,7 +1398,7 @@ export default function RoutingSidebar({
                       <VStack gap={3}>
                         <VStack gap={0.5}>
                           <HStack gap={2} vAlign="center">
-                            <Sparkles className="w-5 h-5 text-blue-vivid" />
+                            <Sparkles className="w-5 h-5 text-gray-vivid" />
                             <Heading level={3}>AI Evacuation Advisor</Heading>
                             {getIncidentIcon()}
                           </HStack>
@@ -1407,7 +1407,7 @@ export default function RoutingSidebar({
 
                         {aiLoading ? (
                           <VStack gap={3} hAlign="center">
-                            <Loader2 className="w-7 h-7 animate-spin text-blue-vivid" />
+                            <Loader2 className="w-7 h-7 animate-spin text-gray-vivid" />
                             <Text type="supporting" weight="bold">Generating safety directives...</Text>
                           </VStack>
                         ) : (

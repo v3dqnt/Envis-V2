@@ -82,22 +82,22 @@ const HAZARD_TYPES = [
 // Astryx hue-token colour per hazard, used on icons only (Badge/Card variants
 // carry the same semantics elsewhere so the two stay consistent).
 const HAZARD_META: Record<string, { icon: React.ReactNode }> = {
-  Wildfire: { icon: <Flame className="w-4 h-4 text-orange-vivid" /> },
-  Flooding: { icon: <Waves className="w-4 h-4 text-blue-vivid" /> },
-  "Flash Flood": { icon: <Waves className="w-4 h-4 text-cyan-vivid" /> },
-  "Ice Storm": { icon: <Snowflake className="w-4 h-4 text-cyan-vivid" /> },
-  "Toxic Plume": { icon: <Skull className="w-4 h-4 text-green-vivid" /> },
-  Earthquake: { icon: <Activity className="w-4 h-4 text-yellow-vivid" /> },
-  Tornado: { icon: <Wind className="w-4 h-4 text-teal-vivid" /> },
-  "Radiation Leak": { icon: <Radiation className="w-4 h-4 text-yellow-vivid" /> },
-  "Chemical Spill": { icon: <Biohazard className="w-4 h-4 text-yellow-vivid" /> },
-  Blizzard: { icon: <Snowflake className="w-4 h-4 text-cyan-vivid" /> },
-  "Volcanic Eruption": { icon: <Mountain className="w-4 h-4 text-red-vivid" /> },
-  "Tropical Cyclone": { icon: <Wind className="w-4 h-4 text-cyan-vivid" /> },
-  Heatwave: { icon: <Thermometer className="w-4 h-4 text-red-vivid" /> },
-  Drought: { icon: <Sun className="w-4 h-4 text-yellow-vivid" /> },
-  "Extreme Cold": { icon: <ThermometerSnowflake className="w-4 h-4 text-blue-vivid" /> },
-  Thunderstorm: { icon: <CloudLightning className="w-4 h-4 text-purple-vivid" /> },
+  Wildfire: { icon: <Flame className="w-4 h-4 text-gray-vivid" /> },
+  Flooding: { icon: <Waves className="w-4 h-4 text-gray-vivid" /> },
+  "Flash Flood": { icon: <Waves className="w-4 h-4 text-gray-vivid" /> },
+  "Ice Storm": { icon: <Snowflake className="w-4 h-4 text-gray-vivid" /> },
+  "Toxic Plume": { icon: <Skull className="w-4 h-4 text-gray-vivid" /> },
+  Earthquake: { icon: <Activity className="w-4 h-4 text-gray-vivid" /> },
+  Tornado: { icon: <Wind className="w-4 h-4 text-gray-vivid" /> },
+  "Radiation Leak": { icon: <Radiation className="w-4 h-4 text-gray-vivid" /> },
+  "Chemical Spill": { icon: <Biohazard className="w-4 h-4 text-gray-vivid" /> },
+  Blizzard: { icon: <Snowflake className="w-4 h-4 text-gray-vivid" /> },
+  "Volcanic Eruption": { icon: <Mountain className="w-4 h-4 text-gray-vivid" /> },
+  "Tropical Cyclone": { icon: <Wind className="w-4 h-4 text-gray-vivid" /> },
+  Heatwave: { icon: <Thermometer className="w-4 h-4 text-gray-vivid" /> },
+  Drought: { icon: <Sun className="w-4 h-4 text-gray-vivid" /> },
+  "Extreme Cold": { icon: <ThermometerSnowflake className="w-4 h-4 text-gray-vivid" /> },
+  Thunderstorm: { icon: <CloudLightning className="w-4 h-4 text-gray-vivid" /> },
   Landslide: { icon: <MountainSnow className="w-4 h-4 text-gray-vivid" /> },
 };
 
@@ -856,21 +856,21 @@ export default function PreventionSidebar({
 
                 {/* Weather Risk Analysis — shown once hazardCenter is set */}
                 {(weatherLoading || weatherRisk || weatherError) && (
-                  <div className="climate-card" style={{ background: "#001d2e", border: "1px solid #669bbc33", borderRadius: "0.625rem", padding: "0.75rem" }}>
+                  <div className="climate-card" style={{ background: "var(--color-background-body)", border: "1px solid rgba(163,163,163,0.20)", borderRadius: "0.625rem", padding: "0.75rem" }}>
                     <VStack gap={3}>
                       <HStack hAlign="between" vAlign="center">
                         <HStack gap={1.5} vAlign="center">
-                          <CloudRain className="w-3.5 h-3.5" style={{ color: "#669bbc" }} />
-                          <span style={{ color: "#669bbc", fontWeight: 600, fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                          <CloudRain className="w-3.5 h-3.5" style={{ color: "var(--color-text-secondary)" }} />
+                          <span style={{ color: "var(--color-text-secondary)", fontWeight: 600, fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.06em" }}>
                             Climate risk analysis{weatherRisk ? ` · ${weatherRisk.historical.yearsAnalyzed}yr archive` : ""}
                           </span>
                         </HStack>
-                        {weatherLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: "#669bbc" }} />}
+                        {weatherLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: "var(--color-text-secondary)" }} />}
                       </HStack>
 
                       {weatherLoading ? (
                         <VStack gap={2} hAlign="center" style={{ padding: "1rem 0" }}>
-                          <Loader2 className="w-5 h-5 animate-spin text-blue-vivid" />
+                          <Loader2 className="w-5 h-5 animate-spin text-gray-vivid" />
                           <Text type="supporting" weight="bold">Fetching {cityName || "location"} climate archive…</Text>
                           <Text type="supporting" size="3xs" color="secondary">Pulling 10 years of Open-Meteo weather data</Text>
                         </VStack>
@@ -886,7 +886,7 @@ export default function PreventionSidebar({
                             <VStack gap={2}>
                               <Text type="supporting" size="3xs" weight="bold">Detected disaster risks · click to analyze</Text>
                               {weatherRisk.risks.map((risk, i) => (
-                                <div className="hazard-item" style={{ borderRadius: "0.5rem", padding: "0.5rem", borderLeft: `3px solid ${risk.confidence === 'high' ? '#c1121f' : risk.confidence === 'medium' ? '#780000' : '#669bbc'}` }}>
+                                <div className="hazard-item" style={{ borderRadius: "0.5rem", padding: "0.5rem", borderLeft: `3px solid ${risk.confidence === 'high' ? '#c1121f' : risk.confidence === 'medium' ? '#780000' : 'var(--color-text-secondary)'}` }}>
                                   <Item
                                     key={i}
                                     label={risk.type}
@@ -901,7 +901,7 @@ export default function PreventionSidebar({
                                         <Text type="supporting" size="3xs">{risk.historicalBasis}</Text>
                                         {risk.recentSignal && (
                                           <HStack gap={1} vAlign="center">
-                                            <TrendingUp className="w-3 h-3" style={{ color: "#669bbc" }} />
+                                            <TrendingUp className="w-3 h-3" style={{ color: "var(--color-text-secondary)" }} />
                                             <Text type="supporting" size="3xs" weight="bold">{risk.recentSignal}</Text>
                                           </HStack>
                                         )}
@@ -919,39 +919,39 @@ export default function PreventionSidebar({
                             trigger={
                               <HStack hAlign="between" vAlign="center" style={{ width: "100%" }}>
                                 <HStack gap={1.5} vAlign="center">
-                                  <Clock className="w-3 h-3" style={{ color: "#669bbc" }} />
-                                  <Text type="supporting" weight="bold" style={{ color: "#fdf0d5" }}>Historical vs recent comparison</Text>
+                                  <Clock className="w-3 h-3" style={{ color: "var(--color-text-secondary)" }} />
+                                  <Text type="supporting" weight="bold" style={{ color: "var(--color-text-primary)" }}>Historical vs recent comparison</Text>
                                 </HStack>
-                                {showHistorical ? <ChevronUp className="w-3.5 h-3.5" style={{ color: "#669bbc" }} /> : <ChevronDown className="w-3.5 h-3.5" style={{ color: "#669bbc" }} />}
+                                {showHistorical ? <ChevronUp className="w-3.5 h-3.5" style={{ color: "var(--color-text-secondary)" }} /> : <ChevronDown className="w-3.5 h-3.5" style={{ color: "var(--color-text-secondary)" }} />}
                               </HStack>
                             }
                           >
                             <VStack gap={2}>
                               <HStack gap={2}>
-                                <div className="climate-card" style={{ background: "#002438", border: "1px solid #669bbc33", borderRadius: "0.625rem", width: "100%", padding: "0.5rem" }}>
+                                <div className="climate-card" style={{ background: "var(--color-background-surface)", border: "1px solid rgba(163,163,163,0.20)", borderRadius: "0.625rem", width: "100%", padding: "0.5rem" }}>
                                   <MetadataList columns="single">
-                                    <MetadataListItem label={`Historical (${weatherRisk.historical.startYear}–${weatherRisk.historical.endYear})`} style={{ color: "#669bbc" }}>{""}</MetadataListItem>
-                                    <MetadataListItem label="Peak rain" style={{ color: "#fdf0d5" }}>{weatherRisk.historical.maxDailyPrecipMm.toFixed(0)}mm</MetadataListItem>
-                                    <MetadataListItem label="Max temp" style={{ color: "#fdf0d5" }}>{weatherRisk.historical.maxTempC.toFixed(1)}°C</MetadataListItem>
-                                    <MetadataListItem label="Min temp" style={{ color: "#fdf0d5" }}>{weatherRisk.historical.minTempC.toFixed(1)}°C</MetadataListItem>
-                                    <MetadataListItem label="Max wind" style={{ color: "#fdf0d5" }}>{weatherRisk.historical.maxWindKmh.toFixed(0)} km/h</MetadataListItem>
-                                    <MetadataListItem label="Max snow" style={{ color: "#fdf0d5" }}>{weatherRisk.historical.maxDailySnowCm.toFixed(0)}cm</MetadataListItem>
-                                    <MetadataListItem label="Avg/year" style={{ color: "#fdf0d5" }}>{weatherRisk.historical.annualAvgPrecipMm.toFixed(0)}mm</MetadataListItem>
+                                    <MetadataListItem label={`Historical (${weatherRisk.historical.startYear}–${weatherRisk.historical.endYear})`} style={{ color: "var(--color-text-secondary)" }}>{""}</MetadataListItem>
+                                    <MetadataListItem label="Peak rain" style={{ color: "var(--color-text-primary)" }}>{weatherRisk.historical.maxDailyPrecipMm.toFixed(0)}mm</MetadataListItem>
+                                    <MetadataListItem label="Max temp" style={{ color: "var(--color-text-primary)" }}>{weatherRisk.historical.maxTempC.toFixed(1)}°C</MetadataListItem>
+                                    <MetadataListItem label="Min temp" style={{ color: "var(--color-text-primary)" }}>{weatherRisk.historical.minTempC.toFixed(1)}°C</MetadataListItem>
+                                    <MetadataListItem label="Max wind" style={{ color: "var(--color-text-primary)" }}>{weatherRisk.historical.maxWindKmh.toFixed(0)} km/h</MetadataListItem>
+                                    <MetadataListItem label="Max snow" style={{ color: "var(--color-text-primary)" }}>{weatherRisk.historical.maxDailySnowCm.toFixed(0)}cm</MetadataListItem>
+                                    <MetadataListItem label="Avg/year" style={{ color: "var(--color-text-primary)" }}>{weatherRisk.historical.annualAvgPrecipMm.toFixed(0)}mm</MetadataListItem>
                                   </MetadataList>
                                 </div>
-                                <div className="climate-card" style={{ background: "#001d2e", border: "1px solid #c1121f33", borderRadius: "0.625rem", width: "100%", padding: "0.5rem" }}>
+                                <div className="climate-card" style={{ background: "var(--color-background-body)", border: "1px solid #c1121f33", borderRadius: "0.625rem", width: "100%", padding: "0.5rem" }}>
                                   <MetadataList columns="single">
                                     <MetadataListItem label={`Recent ${weatherRisk.recent.days} days`} style={{ color: "#c1121f" }}>{""}</MetadataListItem>
-                                    <MetadataListItem label="Precip" style={{ color: "#fdf0d5" }}>{weatherRisk.recent.totalPrecipMm.toFixed(0)}mm</MetadataListItem>
-                                    <MetadataListItem label="Max temp" style={{ color: "#fdf0d5" }}>{weatherRisk.recent.maxTempC.toFixed(1)}°C</MetadataListItem>
-                                    <MetadataListItem label="Min temp" style={{ color: "#fdf0d5" }}>{weatherRisk.recent.minTempC.toFixed(1)}°C</MetadataListItem>
-                                    <MetadataListItem label="Max wind" style={{ color: "#fdf0d5" }}>{weatherRisk.recent.maxWindKmh.toFixed(0)} km/h</MetadataListItem>
-                                    <MetadataListItem label="Snow" style={{ color: "#fdf0d5" }}>{weatherRisk.recent.totalSnowCm.toFixed(0)}cm</MetadataListItem>
-                                    <MetadataListItem label="Avg temp" style={{ color: "#fdf0d5" }}>{weatherRisk.recent.avgTempC.toFixed(1)}°C</MetadataListItem>
+                                    <MetadataListItem label="Precip" style={{ color: "var(--color-text-primary)" }}>{weatherRisk.recent.totalPrecipMm.toFixed(0)}mm</MetadataListItem>
+                                    <MetadataListItem label="Max temp" style={{ color: "var(--color-text-primary)" }}>{weatherRisk.recent.maxTempC.toFixed(1)}°C</MetadataListItem>
+                                    <MetadataListItem label="Min temp" style={{ color: "var(--color-text-primary)" }}>{weatherRisk.recent.minTempC.toFixed(1)}°C</MetadataListItem>
+                                    <MetadataListItem label="Max wind" style={{ color: "var(--color-text-primary)" }}>{weatherRisk.recent.maxWindKmh.toFixed(0)} km/h</MetadataListItem>
+                                    <MetadataListItem label="Snow" style={{ color: "var(--color-text-primary)" }}>{weatherRisk.recent.totalSnowCm.toFixed(0)}cm</MetadataListItem>
+                                    <MetadataListItem label="Avg temp" style={{ color: "var(--color-text-primary)" }}>{weatherRisk.recent.avgTempC.toFixed(1)}°C</MetadataListItem>
                                   </MetadataList>
                                 </div>
                               </HStack>
-                              <Text type="supporting" size="3xs" style={{ color: "#669bbc" }}>
+                              <Text type="supporting" size="3xs" style={{ color: "var(--color-text-secondary)" }}>
                                 Source: Open-Meteo Archive API · {weatherRisk.historical.yearsAnalyzed} year baseline
                               </Text>
                             </VStack>
@@ -964,33 +964,33 @@ export default function PreventionSidebar({
 
                 {/* 72h forecast — live numerical weather prediction, with lead times */}
                 {(forecastLoading || (forecast?.forecasts?.length ?? 0) > 0) && (
-                  <div className="climate-card" style={{ background: "#001d2e", border: "1px solid #669bbc4D", borderRadius: "0.625rem", padding: "0.75rem" }}>
+                  <div className="climate-card" style={{ background: "var(--color-background-body)", border: "1px solid rgba(163,163,163,0.30)", borderRadius: "0.625rem", padding: "0.75rem" }}>
                     <VStack gap={3}>
                       <HStack hAlign="between" vAlign="center">
                         <HStack gap={1.5} vAlign="center">
                           <TrendingUp className="w-3.5 h-3.5" style={{ color: "#c1121f" }} />
-                          <span style={{ color: "#669bbc", fontWeight: 600, fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.06em" }}>72-hour forecast · live weather model</span>
+                          <span style={{ color: "var(--color-text-secondary)", fontWeight: 600, fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.06em" }}>72-hour forecast · live weather model</span>
                         </HStack>
-                        {forecastLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: "#669bbc" }} />}
+                        {forecastLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: "var(--color-text-secondary)" }} />}
                       </HStack>
 
                       {forecastLoading ? (
-                        <Text type="supporting" weight="bold" justify="center" display="block" style={{ color: "#fdf0d5" }}>
+                        <Text type="supporting" weight="bold" justify="center" display="block" style={{ color: "var(--color-text-primary)" }}>
                           Computing convective and hydrological outlook…
                         </Text>
                       ) : (
                         <VStack gap={2}>
                           {forecast?.soilMoisture && (
-                            <Text type="supporting" size="3xs" weight="bold" style={{ color: "#669bbc" }}>
+                            <Text type="supporting" size="3xs" weight="bold" style={{ color: "var(--color-text-secondary)" }}>
                               Soil moisture {forecast.soilMoisture.surface} m³/m³ — {forecast.soilMoisture.interpretation}
                             </Text>
                           )}
                           {(forecast?.forecasts || []).map((f: any, i: number) => (
-                            <Card key={i} variant="default" padding={3} style={{ background: "#002438", border: "1px solid #669bbc33" }}>
+                            <Card key={i} variant="default" padding={3} style={{ background: "var(--color-background-surface)", border: "1px solid rgba(163,163,163,0.20)" }}>
                               <VStack gap={1}>
                                 <HStack hAlign="between" vAlign="center">
                                   <HStack gap={1.5} vAlign="center">
-                                    <Text type="supporting" weight="bold" style={{ color: "#fdf0d5" }}>{f.hazard}</Text>
+                                    <Text type="supporting" weight="bold" style={{ color: "var(--color-text-primary)" }}>{f.hazard}</Text>
                                     {f.compound && <Badge variant="purple" label="Compound" />}
                                   </HStack>
                                   <Badge variant={CONFIDENCE_BADGE[f.confidence as ConfidenceLevel] || "neutral"} label={`${(f.riskScore * 100).toFixed(0)}% · ${f.confidence}`} />
@@ -1004,7 +1004,7 @@ export default function PreventionSidebar({
                                 <VStack gap={0.5}>
                                   {(f.drivers || []).map((dr: any, di: number) => (
                                     <Text key={di} type="supporting" size="3xs" style={{ color: "#aab9c7" }}>
-                                      <Text type="inherit" weight="bold" style={{ color: "#fdf0d5" }}>{dr.label}:</Text> {dr.value} — {dr.meaning}
+                                      <Text type="inherit" weight="bold" style={{ color: "var(--color-text-primary)" }}>{dr.label}:</Text> {dr.value} — {dr.meaning}
                                     </Text>
                                   ))}
                                 </VStack>
@@ -1013,7 +1013,7 @@ export default function PreventionSidebar({
                               </VStack>
                             </Card>
                           ))}
-                          <Text type="supporting" size="4xs" style={{ color: "#669bbc" }}>Source: {forecast?.model}. Forecast horizon {forecast?.window}.</Text>
+                          <Text type="supporting" size="4xs" style={{ color: "var(--color-text-secondary)" }}>Source: {forecast?.model}. Forecast horizon {forecast?.window}.</Text>
                         </VStack>
                       )}
                     </VStack>
@@ -1024,11 +1024,11 @@ export default function PreventionSidebar({
                 <VStack gap={2}>
                   <HStack hAlign="between">
                     <div className="section-accent">
-                      <Text type="body" weight="bold" style={{ color: "#fdf0d5" }}>All hazards — toggle &amp; analyze</Text>
+                      <Text type="body" weight="bold" style={{ color: "var(--color-text-primary)" }}>All hazards — toggle &amp; analyze</Text>
                     </div>
-                    <Text type="supporting" size="3xs" style={{ color: "#669bbc" }}>{visibleHazards.size} active</Text>
+                    <Text type="supporting" size="3xs" style={{ color: "var(--color-text-secondary)" }}>{visibleHazards.size} active</Text>
                   </HStack>
-                  <Text type="supporting" size="3xs" style={{ color: "#669bbc" }}>
+                  <Text type="supporting" size="3xs" style={{ color: "var(--color-text-secondary)" }}>
                     Unpredictable events (spills, radiation, earthquakes) are handled in Aegis Route for response, not here.
                   </Text>
                   <div className="max-h-[380px] overflow-y-auto">
@@ -1039,13 +1039,13 @@ export default function PreventionSidebar({
                         const isExpanded = expandedHazard === type;
                         const meta = HAZARD_META[type];
                         return (
-                          <Card key={type} variant="default" padding={0} style={{ background: "#002438", border: `1px solid ${isVisible ? '#c1121f4D' : '#669bbc1A'}`, borderLeft: isVisible ? '3px solid #c1121f' : '3px solid transparent' }}>
+                          <Card key={type} variant="default" padding={0} style={{ background: "var(--color-background-surface)", border: `1px solid ${isVisible ? '#c1121f4D' : 'rgba(163,163,163,0.10)'}`, borderLeft: isVisible ? '3px solid #c1121f' : '3px solid transparent' }}>
                             <div className="p-2.5">
                               <HStack gap={2} vAlign="center">
                                 <Switch label={`Show ${type} on map`} isLabelHidden value={isVisible} onChange={() => toggleVisibility(type)} isDisabled={!analysis?.analyzed} />
                                 {meta.icon}
                                 <div className="flex-1 min-w-0">
-                                  <Text type="body" weight="bold" maxLines={1} style={{ color: "#fdf0d5" }}>{type}</Text>
+                                  <Text type="body" weight="bold" maxLines={1} style={{ color: "var(--color-text-primary)" }}>{type}</Text>
                                 </div>
 
                                 {analysis?.loading ? (
@@ -1096,7 +1096,7 @@ export default function PreventionSidebar({
                                       </Text>
                                       {analysis.path && (
                                         <HStack gap={1} vAlign="center">
-                                          <Navigation2 className="w-3 h-3 text-purple-vivid" />
+                                          <Navigation2 className="w-3 h-3 text-gray-vivid" />
                                           <Text type="supporting" size="3xs" color="accent">spread path shown on map</Text>
                                         </HStack>
                                       )}
@@ -1130,7 +1130,7 @@ export default function PreventionSidebar({
                                     <VStack gap={1}>
                                       {analysis.checklist.map((item, idx) => (
                                         <HStack key={idx} gap={1.5}>
-                                          <CheckCircle2 className="w-3 h-3 text-green-vivid shrink-0 mt-0.5" />
+                                          <CheckCircle2 className="w-3 h-3 text-gray-vivid shrink-0 mt-0.5" />
                                           <Text type="supporting" size="3xs">{item}</Text>
                                         </HStack>
                                       ))}
@@ -1192,16 +1192,16 @@ export default function PreventionSidebar({
 
                 {/* Temperature Heatmap Toggle */}
                 {hazardCenter && setShowTemperatureHeatmap && (
-                  <div className="climate-card" style={{ background: "#002438", border: `1px solid ${showTemperatureHeatmap ? '#c1121f4D' : '#669bbc33'}`, borderRadius: "0.625rem", padding: "0.75rem" }}>
+                  <div className="climate-card" style={{ background: "var(--color-background-surface)", border: `1px solid ${showTemperatureHeatmap ? '#c1121f4D' : 'rgba(163,163,163,0.20)'}`, borderRadius: "0.625rem", padding: "0.75rem" }}>
                     <HStack hAlign="between" vAlign="center">
                       <HStack gap={2} vAlign="center">
-                        <Thermometer className="w-4 h-4" style={{ color: showTemperatureHeatmap ? "#c1121f" : "#4a6573" }} />
+                        <Thermometer className="w-4 h-4" style={{ color: showTemperatureHeatmap ? "#c1121f" : "var(--color-text-disabled)" }} />
                         <VStack gap={0}>
                           <HStack gap={1.5} vAlign="center">
-                            <Text type="body" weight="bold" style={{ color: "#fdf0d5" }}>Temperature heatmap</Text>
+                            <Text type="body" weight="bold" style={{ color: "var(--color-text-primary)" }}>Temperature heatmap</Text>
                             {temperatureHeatmapLoading && <Loader2 className="w-3 h-3 animate-spin" style={{ color: "#c1121f" }} />}
                           </HStack>
-                          <Text type="supporting" size="3xs" style={{ color: "#669bbc" }}>
+                          <Text type="supporting" size="3xs" style={{ color: "var(--color-text-secondary)" }}>
                             {temperatureHeatmapLoading
                               ? "Fetching temperature data..."
                               : showTemperatureHeatmap

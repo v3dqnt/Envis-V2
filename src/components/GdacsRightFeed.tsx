@@ -78,7 +78,11 @@ export default function GdacsRightFeed({
   const tsunamiCount = earthquakes.filter((e) => e.tsunami).length;
 
   return (
-    <div className="absolute top-4 right-4 z-10 w-[24rem] flex flex-col gap-3 max-h-[calc(100vh-2rem)] overflow-y-auto">
+    <div className="w-full flex flex-col gap-3">
+      {/* Was `absolute top-4 right-4`, a leftover from before panels were docked into
+          a real flex layout — that let this card escape its column and pin to the
+          viewport corner instead of sitting inside the reserved right-hand aside.
+          Now a normal flow child; the parent aside owns width and scrolling. */}
       <Card className="shadow-2xl border-0 bg-neutral-900/92 backdrop-blur-xl supports-[backdrop-filter]:bg-neutral-900/80 border-t-2 border-emerald-500 rounded-2xl overflow-hidden text-white flex flex-col">
         <CardHeader className="pb-3 border-b border-neutral-800 bg-neutral-950/40 shrink-0">
           <CardTitle className="text-lg font-black tracking-tight flex items-center gap-2 text-white">

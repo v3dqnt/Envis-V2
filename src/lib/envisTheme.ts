@@ -5,31 +5,32 @@ import { defineTheme } from "@astryxdesign/core/theme";
 import { neutralTheme } from "@astryxdesign/theme-neutral";
 
 /**
- * Envis command-centre theme.
+ * Envis command-centre theme — graphite palette.
  *
- * The brand palette (Deep Space Blue, Flag Red, Steel Blue, Papaya Whip) was
- * previously applied as ~75 scattered inline `style={{ color: "#..." }}` props.
- * That fought the design system: components lost their token-driven colours,
- * and structural components with built-in padding got replaced by bare divs to
- * make room for the hand-styling — which is why sidebar headers ended up with
- * no padding at all.
- *
- * Declaring the palette once as theme tokens fixes both problems. Every Astryx
- * component now resolves these colours automatically, so the inline styles are
- * redundant and the layout primitives can be used as intended.
+ * Chrome (panels, text, borders, the general interactive accent) is grey/
+ * black/white on purpose: this is a life-safety tool, and burning colour on
+ * decoration makes it harder to notice colour used for something that
+ * actually matters. Error/destructive states are the one deliberate
+ * exception — they stay a real red, the same way the map keeps its
+ * hazard-type colour coding (src/components/MapDashboard.tsx) even though
+ * everything around it went graphite. Red-for-danger is worth keeping even
+ * in an otherwise monochrome UI.
  *
  * Tokens take a [light, dark] tuple. The app runs dark-only (see AstryxProvider)
  * so both entries carry the same value — that keeps the palette correct even if
  * someone later switches the provider to "system".
  */
-const DEEP_SPACE = "#001d2e"; // page background
-const SURFACE = "#002438"; // panels, cards
-const RAISED = "#003049"; // popovers, elevated surfaces
-const FLAG_RED = "#c1121f"; // brand accent, destructive
-const DEEP_RED = "#780000"; // pressed/darker accent
-const STEEL_BLUE = "#669bbc"; // secondary text, icons
-const PAPAYA = "#fdf0d5"; // primary text
-const MUTED_STEEL = "#4a6573"; // disabled text, borders
+const NEAR_BLACK = "#0a0a0a"; // page background
+const CHARCOAL = "#161616"; // panels, cards
+const GRAPHITE = "#212121"; // popovers, elevated surfaces
+const OFF_WHITE = "#f2f2f2"; // primary text
+const LIGHT_GREY = "#a3a3a3"; // secondary text, icons
+const MID_GREY = "#6b6b6b"; // disabled text, borders
+const ACCENT = "#e5e5e5"; // interactive accent — near-white, not a hue
+
+// Kept red on purpose — see comment above.
+const ERROR_RED = "#c1121f";
+const ERROR_RED_DEEP = "#780000";
 
 const dual = (v: string): [string, string] => [v, v];
 
@@ -38,37 +39,37 @@ export const envisTheme = defineTheme({
   extends: neutralTheme,
   tokens: {
     // Surfaces — layered body → surface → raised
-    "--color-background-body": dual(DEEP_SPACE),
-    "--color-background-surface": dual(SURFACE),
-    "--color-background-card": dual(SURFACE),
-    "--color-background-popover": dual(RAISED),
-    "--color-background-muted": dual(RAISED),
+    "--color-background-body": dual(NEAR_BLACK),
+    "--color-background-surface": dual(CHARCOAL),
+    "--color-background-card": dual(CHARCOAL),
+    "--color-background-popover": dual(GRAPHITE),
+    "--color-background-muted": dual(GRAPHITE),
 
     // Text
-    "--color-text-primary": dual(PAPAYA),
-    "--color-text-secondary": dual(STEEL_BLUE),
-    "--color-text-disabled": dual(MUTED_STEEL),
-    "--color-text-accent": dual(FLAG_RED),
+    "--color-text-primary": dual(OFF_WHITE),
+    "--color-text-secondary": dual(LIGHT_GREY),
+    "--color-text-disabled": dual(MID_GREY),
+    "--color-text-accent": dual(ACCENT),
 
     // Icons follow the same hierarchy as text
-    "--color-icon-primary": dual(PAPAYA),
-    "--color-icon-secondary": dual(STEEL_BLUE),
-    "--color-icon-disabled": dual(MUTED_STEEL),
-    "--color-icon-accent": dual(FLAG_RED),
+    "--color-icon-primary": dual(OFF_WHITE),
+    "--color-icon-secondary": dual(LIGHT_GREY),
+    "--color-icon-disabled": dual(MID_GREY),
+    "--color-icon-accent": dual(ACCENT),
 
-    // Interactive accent
-    "--color-accent": dual(FLAG_RED),
-    "--color-on-accent": dual(PAPAYA),
-    "--color-accent-muted": dual("rgba(193, 18, 31, 0.30)"),
+    // Interactive accent — graphite, not brand-coloured
+    "--color-accent": dual(ACCENT),
+    "--color-on-accent": dual(NEAR_BLACK), // dark text/icon on the light accent fill
+    "--color-accent-muted": dual("rgba(229, 229, 229, 0.18)"),
 
     // Borders — kept translucent so panel edges read as separation, not outline
-    "--color-border": dual("rgba(102, 155, 188, 0.22)"),
-    "--color-border-emphasized": dual(MUTED_STEEL),
+    "--color-border": dual("rgba(255, 255, 255, 0.12)"),
+    "--color-border-emphasized": dual(MID_GREY),
 
-    // Status. Error reuses the brand red so alerts stay on-palette.
-    "--color-error": dual(FLAG_RED),
+    // Status — the one place colour survives, deliberately.
+    "--color-error": dual(ERROR_RED),
     "--color-error-muted": dual("rgba(193, 18, 31, 0.25)"),
-    "--color-on-error": dual(PAPAYA),
-    "--color-background-error-inverted": dual(DEEP_RED),
+    "--color-on-error": dual(OFF_WHITE),
+    "--color-background-error-inverted": dual(ERROR_RED_DEEP),
   },
 });

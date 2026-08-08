@@ -897,6 +897,21 @@ The prevention report can be exported as a full markdown document via `buildMark
 
 ---
 
+## Appendix C: Auto Jobs
+
+**Endpoint:** `/api/target-areas/monitor` (scheduled), `/api/target-areas`, `/api/target-areas/suggestions`
+
+Introduces no new formulas — it's an automation layer over signals already documented above. A monitor run checks each active target area's `/api/weather-risk` output against a small rule table (`src/lib/targetAreaRules.ts`) mapping a watched risk type to a hazard pair to flag:
+
+| Rule | Watches (§2's `deriveRisks()` logic) | Flags for review |
+|---|---|---|
+| `heat` | Heatwave temperature anomaly | Heatwave + Wildfire |
+| `precip` | Flooding precipitation-vs-history anomaly | Landslide + Flash Flood |
+
+A crossed threshold never auto-publishes — it upserts a row in `target_area_suggestions` (deduplicated the same way `alerts.dedupe_key` prevents `forecast/broadcast` from re-publishing an already-live alert) for a human to review in the dashboard's Notification Panel. The full hazard-zone/vulnerability-zone/prevention pipeline described in §2 and Appendix B only ever runs once a human clicks "Review" on a suggestion — the monitor job itself never calls OpenAI, OSM, or the 72h forecast engine, keeping a routine scan of every target area cheap regardless of how many are being watched.
+
+---
+
 *Data attribution: OpenStreetMap (ODbL) · Open-Meteo · GDACS · USGS · NASA FIRMS · OpenAQ · TomTom · OpenAI · MapTiler*
 
 *Last updated: August 2026*
