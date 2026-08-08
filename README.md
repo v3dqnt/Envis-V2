@@ -6,7 +6,7 @@ A real-time disaster intelligence platform built with Next.js 16 + MapLibre GL. 
 
 | Module | Description |
 |---|---|
-| **Aegis Route** | Real-time evacuation routing around active hazard zones with AI shelter recommendations |
+| **Aegis Route** | Real-time evacuation routing around active hazard zones with AI shelter recommendations. Hosts the global live feed, and once an epicentre is placed for an Earthquake or Tornado, an impact panel with USGS ShakeMap/PAGER-backed shaking footprints or NWS/operator-projected tornado paths — see [Appendix D](detailed.md#appendix-d-earthquake--tornado-impact-analysis) in `detailed.md` |
 | **Aegis Prevent** | Multi-hazard prediction using real meteorological formulas (72h forecast) and OSM+elevation+weather polygon zones, with a "Route to Safety" handoff into Aegis Route |
 | **Mobile Alert Delivery** | Supabase/PostGIS backend matching published hazard alerts against a device's current location and saved commute points — see [Mobile Alert Delivery](#mobile-alert-delivery-supabase-backed) and [Agent instructions](#agent-instructions-wiring-alert-delivery-into-the-mobile-app) below |
 | **Evacuation Route Transmission** | Pushes the computed road route (direct + hazard-bypassing detour) and shelters to phones, so the warning arrives with the way out — see [Evacuation Route Transmission](#evacuation-route-transmission) |
@@ -96,11 +96,14 @@ Returns active global disasters categorised by type, sourced from GDACS, USGS, T
       "country": "Nepal",
       "tsunami": false,
       "felt": 1200,
-      "date": "2026-06-09T04:13:00Z"
+      "date": "2026-06-09T04:13:00Z",
+      "usgsId": "us7000abc"
     }
   ]
 }
 ```
+
+`usgsId` (earthquakes only) is the USGS event id — pass it to `/api/earthquake-impact` to try the authoritative ShakeMap/PAGER path before falling back to the modelled one.
 
 ---
 
@@ -123,6 +126,60 @@ Returns all active GDACS events (all disaster types) as a flat list.
       "coordinates": [-95.1, 19.4]
     }
   ]
+}
+```
+
+---
+
+### `GET /api/earthquake-impact?usgsId=<id>` · `GET /api/earthquake-impact?lat=&lng=&magnitude=&depth=`
+
+Shaking-intensity footprint, exposed population, and evacuation math per MMI band. Prefers `usgsId` (tries USGS ShakeMap + PAGER first); without it, or if no ShakeMap exists yet, falls back to a modelled MMI-attenuation footprint with `/api/population`-derived exposure. See [Appendix D](detailed.md#appendix-d-earthquake--tornado-impact-analysis) in `detailed.md` for the formulas.
+
+**Response**
+```json
+{
+  "source": "shakemap",
+  "magnitude": 6.5,
+  "depthKm": 10,
+  "epicentre": [85.3, 28.2],
+  "note": "USGS ShakeMap + PAGER exposure.",
+  "assumedOutboundLanes": 6,
+  "bands": [
+    {
+      "mmi": 8,
+      "label": "VIII — Severe",
+      "description": "...",
+      "polygon": [[85.1, 28.1], ["..."]],
+      "population": 42000,
+      "populationConfidence": "shakemap-pager",
+      "clearanceHours": 5.2,
+      "unassignablePeople": 3100,
+      "roadCapacityRetention": 0.45
+    }
+  ]
+}
+```
+
+---
+
+### `GET /api/tornado` · `POST /api/tornado`
+
+`GET` polls active NWS tornado warnings (US only) and projects each one's path from its `TIME...MOT...LOC` storm motion. `POST` projects a path for an operator-placed tornado anywhere — body `{ lat, lng, bearingDeg, speedKmh, efRating? }`; `bearingDeg`/`speedKmh` are required, no silent default.
+
+**Response** (`GET`, or the `tornado` object from `POST`)
+```json
+{
+  "id": "nws-...",
+  "source": "nws",
+  "position": [-97.5, 35.2],
+  "bearingDeg": 45,
+  "speedKmh": 50,
+  "efRating": "unknown",
+  "warningPolygon": [["..."]],
+  "centreline": [["..."]],
+  "corridor": [["..."]],
+  "leadTimeMarkers": [{ "minutes": 5, "position": [-97.47, 35.23] }],
+  "note": "..."
 }
 ```
 
@@ -936,7 +993,8 @@ const styles = StyleSheet.create({
 | Source | Data | Refresh |
 |---|---|---|
 | [GDACS](https://gdacs.org) | Global tropical cyclones, floods, earthquakes, wildfires | 5 min |
-| [USGS](https://earthquake.usgs.gov) | Global earthquakes ≥ M4.5 | 5 min |
+| [USGS](https://earthquake.usgs.gov) | Global earthquakes ≥ M4.5, plus ShakeMap/PAGER shaking-intensity and exposure products where published | 5 min |
+| [NWS](https://api.weather.gov) | Active US tornado warnings + storm motion | On demand |
 | [Open-Meteo](https://open-meteo.com) | 10-year weather archive + 30-day recent conditions | Daily |
 | [Tomorrow.io](https://tomorrow.io) | Tropical cyclone tracks & forecast cones | 5 min (requires key) |
 | [XWeather](https://xweather.com) | Global tropical cyclones (NHC + JTWC) | 5 min (requires key) |

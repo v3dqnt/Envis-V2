@@ -22,6 +22,29 @@ interface MapDashboardProps {
   hazardPaths?: any;
   temperatureGridData?: any;
   showTemperatureHeatmap?: boolean;
+  /** Earthquake MMI band polygons from /api/earthquake-impact — FeatureCollection with an `mmi` (5-9) property per feature. */
+  earthquakeBands?: any;
+  /** Projected tornado from /api/tornado — { position, warningPolygon, corridor, centreline, leadTimeMarkers }. */
+  tornado?: any;
+}
+
+// MMI-band colour scale — kept as real colour (not graphite) because it encodes
+// shaking intensity, the same reasoning that kept hazard-type colours on the
+// map through the rest of the app's retheme. Loosely follows the conventional
+// ShakeMap palette: green (barely felt) through yellow/orange to red (severe).
+const MMI_COLORS: [number, string][] = [
+  [5, '#a3d977'],
+  [6, '#e8e356'],
+  [7, '#f5a83c'],
+  [8, '#e8622c'],
+  [9, '#c1121f'],
+];
+function mmiColor(mmi: number): string {
+  let color = MMI_COLORS[0][1];
+  for (const [threshold, c] of MMI_COLORS) {
+    if (mmi >= threshold) color = c;
+  }
+  return color;
 }
 
 // Helper to generate circle coordinates for the GeoJSON polygon representing the dome
@@ -62,6 +85,8 @@ export default function MapDashboard({
   hazardPaths,
   temperatureGridData,
   showTemperatureHeatmap = false,
+  earthquakeBands,
+  tornado,
 }: MapDashboardProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
@@ -518,6 +543,160 @@ export default function MapDashboard({
         }
       });
 
+      // 5d. Earthquake MMI shaking-intensity bands (/api/earthquake-impact)
+      m.addSource('earthquake-mmi-source', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] }
+      });
+      m.addLayer({
+        id: 'earthquake-mmi-fill',
+        type: 'fill',
+        source: 'earthquake-mmi-source',
+        paint: {
+          'fill-color': ['get', 'color'],
+          // Higher MMI bands are drawn last (see setData ordering) and get
+          // more opacity, so the most severe band reads as the "core".
+          'fill-opacity': ['interpolate', ['linear'], ['get', 'mmi'], 5, 0.12, 9, 0.4]
+        }
+      });
+      m.addLayer({
+        id: 'earthquake-mmi-line',
+        type: 'line',
+        source: 'earthquake-mmi-source',
+        paint: {
+          'line-color': ['get', 'color'],
+          'line-width': 1.5,
+          'line-opacity': 0.8
+        }
+      });
+      m.addLayer({
+        id: 'earthquake-mmi-label',
+        type: 'symbol',
+        source: 'earthquake-mmi-source',
+        layout: {
+          'text-field': ['concat', 'MMI ', ['get', 'mmi']],
+          'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+          'text-size': 10,
+          'symbol-placement': 'line-center'
+        },
+        paint: {
+          'text-color': '#fdf0d5',
+          'text-halo-color': '#001d2e',
+          'text-halo-width': 1.5
+        }
+      });
+
+      // 5e. Tornado — real NWS warning polygon, projected corridor, centreline
+      // with directional chevrons, and current position (/api/tornado).
+      m.addSource('tornado-warning-source', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] }
+      });
+      m.addLayer({
+        id: 'tornado-warning-fill',
+        type: 'fill',
+        source: 'tornado-warning-source',
+        paint: { 'fill-color': '#a855f7', 'fill-opacity': 0.15 }
+      });
+      m.addLayer({
+        id: 'tornado-warning-line',
+        type: 'line',
+        source: 'tornado-warning-source',
+        paint: { 'line-color': '#a855f7', 'line-width': 2, 'line-dasharray': [3, 1.5] }
+      });
+
+      m.addSource('tornado-corridor-source', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] }
+      });
+      m.addLayer({
+        id: 'tornado-corridor-fill',
+        type: 'fill',
+        source: 'tornado-corridor-source',
+        paint: { 'fill-color': '#7c3aed', 'fill-opacity': 0.3 }
+      });
+
+      m.addSource('tornado-path-source', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] }
+      });
+      m.addLayer({
+        id: 'tornado-path-line',
+        type: 'line',
+        source: 'tornado-path-source',
+        filter: ['==', ['get', 'kind'], 'centreline'],
+        paint: { 'line-color': '#7c3aed', 'line-width': 3, 'line-opacity': 0.9 }
+      });
+      // Directional chevrons along the centreline, oriented to the tornado's
+      // bearing — the "where it is moving" graphic, built from geometry rather
+      // than a sprite image since the map has no icon-loading pipeline.
+      m.addLayer({
+        id: 'tornado-path-chevrons',
+        type: 'symbol',
+        source: 'tornado-path-source',
+        filter: ['==', ['get', 'kind'], 'chevron'],
+        layout: {
+          'text-field': '▲',
+          'text-size': 16,
+          'text-rotate': ['get', 'bearingDeg'],
+          'text-rotation-alignment': 'map',
+          'text-allow-overlap': true
+        },
+        paint: { 'text-color': '#a855f7', 'text-halo-color': '#001d2e', 'text-halo-width': 1.5 }
+      });
+      // Lead-time markers (5/10/15/30 min)
+      m.addLayer({
+        id: 'tornado-lead-time-points',
+        type: 'circle',
+        source: 'tornado-path-source',
+        filter: ['==', ['get', 'kind'], 'leadtime'],
+        paint: { 'circle-radius': 4, 'circle-color': '#a855f7', 'circle-stroke-color': '#fdf0d5', 'circle-stroke-width': 1.5 }
+      });
+      m.addLayer({
+        id: 'tornado-lead-time-label',
+        type: 'symbol',
+        source: 'tornado-path-source',
+        filter: ['==', ['get', 'kind'], 'leadtime'],
+        layout: {
+          'text-field': ['concat', ['get', 'minutes'], ' min'],
+          'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+          'text-size': 10,
+          'text-offset': [0, 1.2],
+          'text-anchor': 'top'
+        },
+        paint: { 'text-color': '#a855f7', 'text-halo-color': '#001d2e', 'text-halo-width': 1.5 }
+      });
+
+      m.addSource('tornado-position-source', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] }
+      });
+      m.addLayer({
+        id: 'tornado-position-glow',
+        type: 'circle',
+        source: 'tornado-position-source',
+        paint: { 'circle-radius': 18, 'circle-color': '#a855f7', 'circle-opacity': 0.3, 'circle-blur': 0.8 }
+      });
+      m.addLayer({
+        id: 'tornado-position-core',
+        type: 'circle',
+        source: 'tornado-position-source',
+        paint: { 'circle-radius': 8, 'circle-color': '#a855f7', 'circle-stroke-color': '#fdf0d5', 'circle-stroke-width': 2 }
+      });
+      m.addLayer({
+        id: 'tornado-position-label',
+        type: 'symbol',
+        source: 'tornado-position-source',
+        layout: {
+          'text-field': ['get', 'label'],
+          'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+          'text-size': 11,
+          'text-offset': [0, 1.6],
+          'text-anchor': 'top'
+        },
+        paint: { 'text-color': '#fdf0d5', 'text-halo-color': '#001d2e', 'text-halo-width': 1.5 }
+      });
+
       // Add hover popup for vulnerability zones
       m.on('mousemove', 'vulnerability-zones-high', () => { m.getCanvas().style.cursor = 'pointer'; });
       m.on('mousemove', 'vulnerability-zones-medium', () => { m.getCanvas().style.cursor = 'pointer'; });
@@ -946,6 +1125,107 @@ export default function MapDashboard({
         pathsSource.setData(hasPaths ? hazardPaths : { type: 'FeatureCollection', features: [] });
         if (m.getLayer('hazard-paths')) m.setLayoutProperty('hazard-paths', 'visibility', hasPaths ? 'visible' : 'none');
       }
+
+      // 7. Update earthquake MMI bands. Sorted ascending so the highest-intensity
+      // (most opaque) band draws last, on top of the wider, fainter outer bands.
+      const mmiSource = m.getSource('earthquake-mmi-source') as maplibregl.GeoJSONSource;
+      if (mmiSource) {
+        const hasBands = earthquakeBands?.features?.length > 0;
+        if (hasBands) {
+          const sorted = [...earthquakeBands.features].sort((a, b) => (a.properties?.mmi ?? 0) - (b.properties?.mmi ?? 0));
+          mmiSource.setData({
+            type: 'FeatureCollection',
+            features: sorted.map((f: any) => ({
+              ...f,
+              properties: { ...f.properties, color: mmiColor(f.properties?.mmi ?? 5) }
+            }))
+          });
+        } else {
+          mmiSource.setData({ type: 'FeatureCollection', features: [] });
+        }
+        for (const id of ['earthquake-mmi-fill', 'earthquake-mmi-line', 'earthquake-mmi-label']) {
+          if (m.getLayer(id)) m.setLayoutProperty(id, 'visibility', hasBands ? 'visible' : 'none');
+        }
+      }
+
+      // 8. Update tornado — warning polygon (if real NWS data), projected
+      // corridor, centreline + directional chevrons, lead-time markers, and
+      // current position. `tornado` is the raw /api/tornado feature/response.
+      const hasTornado = !!tornado;
+
+      const warnSource = m.getSource('tornado-warning-source') as maplibregl.GeoJSONSource;
+      if (warnSource) {
+        const hasWarning = hasTornado && Array.isArray(tornado.warningPolygon);
+        warnSource.setData(
+          hasWarning
+            ? { type: 'FeatureCollection', features: [{ type: 'Feature', geometry: { type: 'Polygon', coordinates: [tornado.warningPolygon] }, properties: {} }] }
+            : { type: 'FeatureCollection', features: [] }
+        );
+        for (const id of ['tornado-warning-fill', 'tornado-warning-line']) {
+          if (m.getLayer(id)) m.setLayoutProperty(id, 'visibility', hasWarning ? 'visible' : 'none');
+        }
+      }
+
+      const corridorSource = m.getSource('tornado-corridor-source') as maplibregl.GeoJSONSource;
+      if (corridorSource) {
+        const hasCorridor = hasTornado && Array.isArray(tornado.corridor);
+        corridorSource.setData(
+          hasCorridor
+            ? { type: 'FeatureCollection', features: [{ type: 'Feature', geometry: { type: 'Polygon', coordinates: [tornado.corridor] }, properties: {} }] }
+            : { type: 'FeatureCollection', features: [] }
+        );
+        if (m.getLayer('tornado-corridor-fill')) m.setLayoutProperty('tornado-corridor-fill', 'visibility', hasCorridor ? 'visible' : 'none');
+      }
+
+      const pathSource = m.getSource('tornado-path-source') as maplibregl.GeoJSONSource;
+      if (pathSource) {
+        const pathVisible = hasTornado && Array.isArray(tornado.centreline);
+        if (pathVisible) {
+          const features: any[] = [
+            { type: 'Feature', geometry: { type: 'LineString', coordinates: tornado.centreline }, properties: { kind: 'centreline' } }
+          ];
+          // A chevron at each lead-time marker, all pointing along the bearing —
+          // this is the "where it is moving" graphic.
+          for (const marker of tornado.leadTimeMarkers ?? []) {
+            features.push({
+              type: 'Feature',
+              geometry: { type: 'Point', coordinates: marker.position },
+              properties: { kind: 'chevron', bearingDeg: tornado.bearingDeg }
+            });
+            features.push({
+              type: 'Feature',
+              geometry: { type: 'Point', coordinates: marker.position },
+              properties: { kind: 'leadtime', minutes: marker.minutes }
+            });
+          }
+          pathSource.setData({ type: 'FeatureCollection', features });
+        } else {
+          pathSource.setData({ type: 'FeatureCollection', features: [] });
+        }
+        for (const id of ['tornado-path-line', 'tornado-path-chevrons', 'tornado-lead-time-points', 'tornado-lead-time-label']) {
+          if (m.getLayer(id)) m.setLayoutProperty(id, 'visibility', pathVisible ? 'visible' : 'none');
+        }
+      }
+
+      const positionSource = m.getSource('tornado-position-source') as maplibregl.GeoJSONSource;
+      if (positionSource) {
+        const hasPosition = hasTornado && Array.isArray(tornado.position);
+        positionSource.setData(
+          hasPosition
+            ? {
+                type: 'FeatureCollection',
+                features: [{
+                  type: 'Feature',
+                  geometry: { type: 'Point', coordinates: tornado.position },
+                  properties: { label: `${tornado.efRating === 'unknown' ? 'Tornado' : tornado.efRating} · ${Math.round(tornado.speedKmh)} km/h` }
+                }]
+              }
+            : { type: 'FeatureCollection', features: [] }
+        );
+        for (const id of ['tornado-position-glow', 'tornado-position-core', 'tornado-position-label']) {
+          if (m.getLayer(id)) m.setLayoutProperty(id, 'visibility', hasPosition ? 'visible' : 'none');
+        }
+      }
     };
 
     if (m.isStyleLoaded()) {
@@ -953,7 +1233,7 @@ export default function MapDashboard({
     } else {
       m.once('idle', updateLayers);
     }
-  }, [hazardCenter, hazardRadius, routeGeoJSON, bypassRouteGeoJSON, evacuationPoints, activeDefenses, vulnerabilityZones, hazardPolygons, hazardOrigins, hazardPaths]);
+  }, [hazardCenter, hazardRadius, routeGeoJSON, bypassRouteGeoJSON, evacuationPoints, activeDefenses, vulnerabilityZones, hazardPolygons, hazardOrigins, hazardPaths, earthquakeBands, tornado]);
 
   // Temperature Heatmap update effect — separate from other layers for clarity
   useEffect(() => {

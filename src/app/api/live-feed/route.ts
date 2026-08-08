@@ -25,6 +25,10 @@ export interface EarthquakeEvent {
   tsunami: boolean;
   felt?: number;
   date: string;
+  /** USGS's own event id (e.g. "us7000abcd"), present only for USGS-sourced
+   * events. Feeds /api/earthquake-impact's ShakeMap/PAGER lookup — GDACS events
+   * have no USGS id and always use that route's modelled fallback instead. */
+  usgsId?: string;
 }
 
 async function fetchGdacs(): Promise<{ cyclones: CycloneEvent[]; earthquakes: EarthquakeEvent[] }> {
@@ -117,6 +121,7 @@ async function fetchUsgsEarthquakes(): Promise<EarthquakeEvent[]> {
       tsunami: p.tsunami === 1,
       felt: p.felt || undefined,
       date: new Date(p.time).toISOString(),
+      usgsId: f.id,
     };
   });
 }

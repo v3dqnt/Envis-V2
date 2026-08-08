@@ -25,6 +25,7 @@
 4. [Map Rendering Layers & Data Origins](#4-map-rendering-layers--data-origins)
 5. [Availability Logic — Which Hazards Are Predicted vs Audited](#5-availability-logic--which-hazards-are-predicted-vs-audited)
 6. [Appendix: Meteorology Library](#6-appendix-meteorology-library)
+7. [Appendix D: Earthquake & Tornado Impact Analysis](#appendix-d-earthquake--tornado-impact-analysis)
 
 ---
 
@@ -791,8 +792,11 @@ These derive from the **10-year historical archive** (`/api/weather-risk`):
 
 These are handled in **Aegis Route** (response/evacuation mode) but are **not predicted** because they lack reliable forecast methods:
 
-- Earthquake — geophysical, no reliable NWP precursor signal
-- Tornado — sub-grid-scale, cannot be pinned to specific coordinates 72h out
+- Earthquake — geophysical, no reliable NWP precursor signal. Once one has happened,
+  though, its shaking footprint, exposed population, and evacuation math *are* modelled —
+  see [Appendix D](#appendix-d-earthquake--tornado-impact-analysis).
+- Tornado — sub-grid-scale, cannot be pinned to specific coordinates 72h out. An active or
+  operator-placed tornado's forward path *is* projected once it exists — see Appendix D.
 - Volcanic Eruption — geophysical, needs dedicated InSAR/seismic monitoring
 - Toxic Plume — industrial accident, not weather-driven
 - Radiation Leak — accident scenario
@@ -909,6 +913,80 @@ Introduces no new formulas — it's an automation layer over signals already doc
 | `precip` | Flooding precipitation-vs-history anomaly | Landslide + Flash Flood |
 
 A crossed threshold never auto-publishes — it upserts a row in `target_area_suggestions` (deduplicated the same way `alerts.dedupe_key` prevents `forecast/broadcast` from re-publishing an already-live alert) for a human to review in the dashboard's Notification Panel. The full hazard-zone/vulnerability-zone/prevention pipeline described in §2 and Appendix B only ever runs once a human clicks "Review" on a suggestion — the monitor job itself never calls OpenAI, OSM, or the 72h forecast engine, keeping a routine scan of every target area cheap regardless of how many are being watched.
+
+---
+
+## Appendix D: Earthquake & Tornado Impact Analysis
+
+**Endpoints:** `/api/earthquake-impact`, `/api/tornado`
+**Libraries:** `src/lib/seismology.ts`, `src/lib/evacuationCapacity.ts`
+**UI:** `src/components/ImpactPanel.tsx`, rendered inside Aegis Route's "1. Affected" tab
+once an epicentre is placed for an Earthquake or Tornado incident. The global live feed
+(`GdacsRightFeed`) that used to sit in Auto Jobs now lives at the top of Aegis Route
+instead — clicking a real earthquake there both places the epicentre and hands the full
+event (magnitude, depth, USGS id) to the impact panel below.
+
+### D.1 Earthquake — shaking footprint, exposure, evacuation
+
+Formula reference: `RESEARCH.md` §2.5. Two data paths, both returned with an honest
+`source` field so the UI never presents a model as if it were measured ground truth:
+
+1. **Authoritative — USGS ShakeMap + PAGER.** For events with a published USGS `detail`
+   feed (`usgsId` carried on the live-feed event), the route fetches the `shakemap`
+   product for its MMI-contour GeoJSON and the `losspager` product for population
+   exposure per MMI level. Parsing is deliberately defensive — it pattern-matches for a
+   contour-shaped and an exposure-shaped file rather than assuming an exact field name,
+   and falls through to path 2 on anything unexpected rather than fabricate a number.
+   Returns `source: "shakemap"`.
+2. **Modelled fallback** — used below PAGER's M5.5 floor or when no ShakeMap exists yet.
+   MMI vs. distance uses the Kövesligethy/Blake intensity-attenuation form
+   `I = a + b·M − c·ln(D)` with Musson's UK calibration (`a=3.31, b=1.28, c=1.22`) as an
+   exactly-quotable published constant — explicitly flagged in the response `note` as
+   uncalibrated for most regions, not a precision estimate. Each MMI band (V through IX+)
+   becomes a ring polygon (`ringPolygonKm`, the server-side twin of `MapDashboard`'s
+   `getCirclePolygon` — duplicated rather than imported across the client/server
+   boundary). Exposed population per band comes from `/api/population` sampled near the
+   epicentre and area-scaled, flagged `populationConfidence: "modelled-low"`. Returns
+   `source: "modelled"`.
+
+**Evacuation math per band** (`evacuationCapacity.ts`, RESEARCH.md §3): vehicles =
+population ÷ 2.2 (occupancy), throughput from HCM lane capacity, clearance time from the
+loading + travel time, and an **unassignable** count — people clearance can't move within
+6 hours who need sheltering-in-place instead of evacuation. `roadCapacityRetention(mmi)`
+degrades assumed capacity sharply above MMI VIII (down to 15% at MMI≥X), since
+post-earthquake throughput is governed by bridge and road damage, not by an intact
+network moving traffic slower.
+
+### D.2 Tornado — projected path & lead-time markers
+
+Formula reference: `RESEARCH.md` §2.3. Two sources of a starting position + bearing +
+speed, one shared projection:
+
+1. **NWS live (US only)** — `GET /api/tornado` polls
+   `api.weather.gov/alerts/active?event=Tornado%20Warning` and parses the legacy
+   `TIME...MOT...LOC` storm-motion parameter out of the warning text
+   (`/TIME\.\.\.MOT\.\.\.LOC\s+\d{3,4}Z\s+(\d{1,3})DEG\s+(\d{1,3})KT\s+(\d+)\s+(\d+)/`).
+   Warnings without a parseable motion string are skipped rather than guessed.
+2. **Operator-placed (anywhere)** — `POST /api/tornado` takes `{lat, lng, bearingDeg,
+   speedKmh, efRating}`; bearing and speed are required with no silent default, since a
+   tornado can't be projected without them.
+
+Both feed the same `projectTornado()`: a haversine-stepped centreline out to the horizon,
+a damage corridor built by offsetting the centreline by half-width-per-EF-rating (EF0
+0.04 km through EF5 0.6 km; `unknown` uses EF1's width as the safer default), and
+lead-time markers at 5/10/15/30 minutes. Where NWS publishes a real warning polygon it is
+drawn as the authoritative warned area, with the projected corridor extending beyond it.
+EF-rating corridor widths are a modelled band, not a rating derivation — width correlates
+with intensity but varies too much to pin a rating from width alone.
+
+### D.3 Map layers
+
+`MapDashboard.tsx` renders MMI bands as a fill+line layer pair coloured on a real
+(non-graphite) red/green intensity scale — like hazard-type colours and the temperature
+gradient, shaking intensity is data the palette has to carry, not chrome. Tornado
+rendering has no sprite/icon pipeline to lean on (every other layer in the map is
+geometry-only), so direction-of-travel chevrons are rotated `▲` text symbols
+(`text-rotate` bound to `bearingDeg`) along the centreline rather than image markers.
 
 ---
 

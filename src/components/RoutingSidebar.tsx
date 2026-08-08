@@ -46,6 +46,9 @@ import {
   Download,
 } from "lucide-react";
 import { ReportIncidentModal } from "@/components/ReportIncidentModal";
+import GdacsRightFeed from "@/components/GdacsRightFeed";
+import ImpactPanel from "@/components/ImpactPanel";
+import type { CycloneEvent, EarthquakeEvent } from "@/app/api/live-feed/route";
 
 interface RoutingSidebarProps {
   hazardCenter: [number, number] | null;
@@ -80,6 +83,16 @@ interface RoutingSidebarProps {
   setIncidentType: (type: string) => void;
   pendingAutoRoute?: boolean;
   clearPendingAutoRoute?: () => void;
+  // Global live feed — moved here from Auto Jobs since active events are
+  // response work, and the impact panel below needs the full earthquake
+  // object (magnitude, depth, USGS id) that a click on this feed carries.
+  cyclones: CycloneEvent[];
+  earthquakes: EarthquakeEvent[];
+  feedLoading: boolean;
+  selectedEarthquake: EarthquakeEvent | null;
+  setSelectedEarthquake: (evt: EarthquakeEvent | null) => void;
+  setEarthquakeBands: (fc: any) => void;
+  setTornado: (t: any) => void;
 }
 
 // Haversine distance helper (in kilometers)
@@ -423,6 +436,13 @@ export default function RoutingSidebar({
   setIncidentType,
   pendingAutoRoute,
   clearPendingAutoRoute,
+  cyclones,
+  earthquakes,
+  feedLoading,
+  selectedEarthquake,
+  setSelectedEarthquake,
+  setEarthquakeBands,
+  setTornado,
 }: RoutingSidebarProps) {
   const [startPoint, setStartPoint] = useState("");
   const [endPoint, setEndPoint] = useState("");
@@ -1042,6 +1062,20 @@ export default function RoutingSidebar({
         content={
           <LayoutContent padding={6} isScrollable={false}>
             <VStack gap={4}>
+                  {/* Active-event feed — response work belongs in Route, not
+                      in the Auto Jobs watchlist. Selecting an event here sets
+                      the epicentre and, for earthquakes, feeds the impact
+                      panel below via onSelectEarthquake. */}
+                  <GdacsRightFeed
+                    cyclones={cyclones}
+                    earthquakes={earthquakes}
+                    feedLoading={feedLoading}
+                    setHazardCenter={setHazardCenter}
+                    setMapFlyToCoords={setMapFlyToCoords}
+                    setIncidentType={setIncidentType}
+                    onSelectEarthquake={setSelectedEarthquake}
+                  />
+
                   <TabList value={tab} onChange={setTab} layout="fill" size="sm" hasDivider>
                     <Tab value="hazard" label="1. Affected" icon={<Target className="w-3.5 h-3.5" />} />
                     <Tab value="route" label="2. Navigate" icon={<Navigation className="w-3.5 h-3.5" />} />
@@ -1134,6 +1168,14 @@ export default function RoutingSidebar({
                               </MetadataListItem>
                             </MetadataList>
                           </Card>
+
+                          <ImpactPanel
+                            incidentType={incidentType}
+                            hazardCenter={hazardCenter}
+                            selectedEarthquake={selectedEarthquake}
+                            setEarthquakeBands={setEarthquakeBands}
+                            setTornado={setTornado}
+                          />
                         </VStack>
                       )}
                     </VStack>

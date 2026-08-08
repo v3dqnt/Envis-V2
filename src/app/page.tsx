@@ -6,6 +6,7 @@ import RoutingSidebar from "@/components/RoutingSidebar";
 import PreventionSidebar from "@/components/PreventionSidebar";
 import AutoJobsSidebar from "@/components/AutoJobsSidebar";
 import type { Suggestion } from "@/components/NotificationPanel";
+import type { EarthquakeEvent } from "@/app/api/live-feed/route";
 import { Navigation, ShieldAlert, Radar, Loader2 } from "lucide-react";
 import { VStack } from "@astryxdesign/core/Layout";
 import { Text } from "@astryxdesign/core/Text";
@@ -64,6 +65,13 @@ export default function Home() {
   const [liveCyclones, setLiveCyclones] = useState<any[]>([]);
   const [liveEarthquakes, setLiveEarthquakes] = useState<any[]>([]);
   const [liveFeedLoading, setLiveFeedLoading] = useState<boolean>(false);
+
+  // Earthquake/tornado impact analysis — computed in RoutingSidebar's
+  // ImpactPanel, rendered on the map here since MapDashboard is a sibling,
+  // not a child, of that panel.
+  const [selectedEarthquake, setSelectedEarthquake] = useState<EarthquakeEvent | null>(null);
+  const [earthquakeBands, setEarthquakeBands] = useState<any>(null);
+  const [tornado, setTornado] = useState<any>(null);
 
   // Vulnerability zones state (for map highlighting) — aggregated across all
   // analyzed + toggled-visible hazards in Aegis Prevent's multi-hazard view
@@ -415,6 +423,13 @@ export default function Home() {
               setIncidentType={setIncidentType}
               pendingAutoRoute={pendingAutoRoute}
               clearPendingAutoRoute={() => setPendingAutoRoute(false)}
+              cyclones={liveCyclones}
+              earthquakes={liveEarthquakes}
+              feedLoading={liveFeedLoading}
+              selectedEarthquake={selectedEarthquake}
+              setSelectedEarthquake={setSelectedEarthquake}
+              setEarthquakeBands={setEarthquakeBands}
+              setTornado={setTornado}
             />
           </div>
 
@@ -448,9 +463,6 @@ export default function Home() {
               suggestions={suggestions}
               suggestionsAvailable={suggestionsAvailable}
               refreshSuggestions={refreshSuggestions}
-              cyclones={liveCyclones}
-              earthquakes={liveEarthquakes}
-              feedLoading={liveFeedLoading}
               setHazardCenter={setHazardCenter}
               setMapFlyToCoords={setMapFlyToCoords}
               setIncidentType={setIncidentType}
@@ -484,6 +496,8 @@ export default function Home() {
         hazardPolygons={hazardPolygons}
         hazardOrigins={hazardOrigins}
         hazardPaths={hazardPaths}
+        earthquakeBands={earthquakeBands}
+        tornado={tornado}
           temperatureGridData={showTemperatureHeatmap ? temperatureGridData : null}
           showTemperatureHeatmap={showTemperatureHeatmap}
         />

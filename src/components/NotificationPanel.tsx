@@ -1,8 +1,10 @@
 "use client";
 
 /**
- * Alerts half of the Auto Jobs tab: suggestions the monitor job raised and are
- * waiting on a human, followed by the global live feed.
+ * Suggestions the Auto Jobs monitor raised and are waiting on a human to
+ * review or publish. The global live feed used to render here too, but active
+ * events are response work, not monitoring — it now lives in RoutingSidebar,
+ * alongside the tools an operator actually uses once something is happening.
  *
  * Headerless and props-driven on purpose — it composes inside AutoJobsSidebar's
  * LayoutContent, so it draws no header or Card chrome of its own, and the
@@ -13,9 +15,7 @@
 import React, { useState } from "react";
 import { VStack, HStack } from "@astryxdesign/core/Layout";
 import { Text } from "@astryxdesign/core/Text";
-import GdacsRightFeed from "@/components/GdacsRightFeed";
 import { Loader2, Check, X, Eye } from "lucide-react";
-import type { CycloneEvent, EarthquakeEvent } from "@/app/api/live-feed/route";
 
 export interface Suggestion {
   id: string;
@@ -34,9 +34,6 @@ interface NotificationPanelProps {
   suggestions: Suggestion[];
   suggestionsAvailable: boolean;
   refreshSuggestions: () => void;
-  cyclones: CycloneEvent[];
-  earthquakes: EarthquakeEvent[];
-  feedLoading: boolean;
   setHazardCenter: (coords: [number, number] | null) => void;
   setMapFlyToCoords: (coords: [number, number] | null) => void;
   setIncidentType: (type: string) => void;
@@ -48,9 +45,6 @@ export default function NotificationPanel({
   suggestions,
   suggestionsAvailable,
   refreshSuggestions,
-  cyclones,
-  earthquakes,
-  feedLoading,
   setHazardCenter,
   setMapFlyToCoords,
   setIncidentType,
@@ -241,15 +235,6 @@ export default function NotificationPanel({
           ))
         )}
       </VStack>
-
-      <GdacsRightFeed
-        cyclones={cyclones}
-        earthquakes={earthquakes}
-        feedLoading={feedLoading}
-        setHazardCenter={setHazardCenter}
-        setMapFlyToCoords={setMapFlyToCoords}
-        setIncidentType={setIncidentType}
-      />
     </VStack>
   );
 }

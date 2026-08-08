@@ -12,6 +12,9 @@ interface LiveFeedProps {
   setHazardCenter: (coords: [number, number] | null) => void;
   setMapFlyToCoords: (coords: [number, number] | null) => void;
   setIncidentType: (type: string) => void;
+  /** Fires with the full event (magnitude, depth, USGS id) so the Impact panel
+   * can call /api/earthquake-impact — the setters above only carry a point. */
+  onSelectEarthquake?: (evt: EarthquakeEvent) => void;
 }
 
 type Tab = "cyclones" | "earthquakes";
@@ -56,6 +59,7 @@ export default function GdacsRightFeed({
   setHazardCenter,
   setMapFlyToCoords,
   setIncidentType,
+  onSelectEarthquake,
 }: LiveFeedProps) {
   const [tab, setTab] = useState<Tab>("cyclones");
 
@@ -161,7 +165,7 @@ export default function GdacsRightFeed({
                           if (evt.coordinates) {
                             setHazardCenter(evt.coordinates);
                             setMapFlyToCoords(evt.coordinates);
-                            setIncidentType("Tornado");
+                            setIncidentType("Tropical Cyclone");
                           }
                         }}
                         className={`group p-2.5 bg-neutral-950/50 border border-neutral-800 ${hover} rounded-xl cursor-pointer transition-all`}
@@ -237,6 +241,7 @@ export default function GdacsRightFeed({
                             setHazardCenter(evt.coordinates);
                             setMapFlyToCoords(evt.coordinates);
                             setIncidentType("Earthquake");
+                            onSelectEarthquake?.(evt);
                           }
                         }}
                         className={`group p-2.5 bg-neutral-950/50 border border-neutral-800 ${hover} rounded-xl cursor-pointer transition-all`}

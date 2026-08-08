@@ -17,7 +17,6 @@ import { Item } from "@astryxdesign/core/Item";
 import { Divider } from "@astryxdesign/core/Divider";
 import NotificationPanel, { type Suggestion } from "@/components/NotificationPanel";
 import { Radar, MapPin, X, Loader2 } from "lucide-react";
-import type { CycloneEvent, EarthquakeEvent } from "@/app/api/live-feed/route";
 
 interface TargetArea {
   id: string;
@@ -33,9 +32,6 @@ interface AutoJobsSidebarProps {
   suggestions: Suggestion[];
   suggestionsAvailable: boolean;
   refreshSuggestions: () => void;
-  cyclones: CycloneEvent[];
-  earthquakes: EarthquakeEvent[];
-  feedLoading: boolean;
   setHazardCenter: (coords: [number, number] | null) => void;
   setMapFlyToCoords: (coords: [number, number] | null) => void;
   setIncidentType: (type: string) => void;
@@ -46,9 +42,6 @@ export default function AutoJobsSidebar({
   suggestions,
   suggestionsAvailable,
   refreshSuggestions,
-  cyclones,
-  earthquakes,
-  feedLoading,
   setHazardCenter,
   setMapFlyToCoords,
   setIncidentType,
@@ -246,16 +239,13 @@ export default function AutoJobsSidebar({
 
             <Divider />
 
-            {/* Alerts half: what the monitoring produced, plus the global live
-                feed. Rendered outside the `unavailable` branch above so the
-                feed still works when Supabase isn't configured. */}
+            {/* Suggestions the monitor raised, awaiting review/publish. Rendered
+                outside the `unavailable` branch above so a Supabase outage
+                doesn't hide anything already fetched before it happened. */}
             <NotificationPanel
               suggestions={suggestions}
               suggestionsAvailable={suggestionsAvailable}
               refreshSuggestions={refreshSuggestions}
-              cyclones={cyclones}
-              earthquakes={earthquakes}
-              feedLoading={feedLoading}
               setHazardCenter={setHazardCenter}
               setMapFlyToCoords={setMapFlyToCoords}
               setIncidentType={setIncidentType}
