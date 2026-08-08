@@ -1,15 +1,18 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import MapDashboard from "@/components/MapDashboard";
 import RoutingSidebar from "@/components/RoutingSidebar";
 import PreventionSidebar from "@/components/PreventionSidebar";
 import AutoJobsSidebar from "@/components/AutoJobsSidebar";
-import NotificationPanel from "@/components/NotificationPanel";
+import type { Suggestion } from "@/components/NotificationPanel";
 import { Navigation, ShieldAlert, Radar, Loader2 } from "lucide-react";
 import { VStack } from "@astryxdesign/core/Layout";
 import { Text } from "@astryxdesign/core/Text";
-import { Collapsible, CollapsibleGroup } from "@astryxdesign/core/Collapsible";
+import { TabList, Tab } from "@astryxdesign/core/TabList";
+import { Badge } from "@astryxdesign/core/Badge";
+
+type WorkspaceTab = "prevention" | "routing" | "autojobs";
 
 export default function Home() {
   const [mounted, setMounted] = useState(false);
@@ -28,13 +31,10 @@ export default function Home() {
   const [aiLoading, setAiLoading] = useState<boolean>(false);
   const [evacuationPoints, setEvacuationPoints] = useState<any>(null);
 
-  // Workspace panel state — which of the left-column sections are expanded.
-  // "multiple" mode means any combination can be open at once; this replaced
-  // the old mode-exclusive Routing/Prevention tab switcher so the workspace
-  // can show several panels side by side instead of hiding all but one.
-  const [openPanels, setOpenPanels] = useState<string[]>(["prevention"]);
-  const openPanel = (panel: string) =>
-    setOpenPanels((prev) => (prev.includes(panel) ? prev : [...prev, panel]));
+  // Which workspace tab is showing. Only one panel is visible at a time, but
+  // all three stay mounted (see the render below) so switching tabs never
+  // discards an in-progress analysis.
+  const [activeTab, setActiveTab] = useState<WorkspaceTab>("prevention");
 
   // When set, RoutingSidebar auto-picks the nearest shelter and generates the
   // evacuation route as soon as it mounts — set by "Route to Safety" in Aegis Prevent.
@@ -46,7 +46,7 @@ export default function Home() {
     setHazardRadius(Math.round(radiusMeters));
     setMapFlyToCoords(center);
     setPendingAutoRoute(true);
-    openPanel("routing");
+    setActiveTab("routing");
   };
   // Mitigation active defenses state
   const [activeDefenses, setActiveDefenses] = useState<string[]>([]);
@@ -79,6 +79,36 @@ export default function Home() {
   const [showTemperatureHeatmap, setShowTemperatureHeatmap] = useState<boolean>(false);
   const [temperatureGridData, setTemperatureGridData] = useState<any>(null);
   const [temperatureHeatmapLoading, setTemperatureHeatmapLoading] = useState<boolean>(false);
+
+  // Auto Jobs suggestions. Lifted here rather than kept inside the panel that
+  // renders them, because the tab strip needs the pending count for its badge —
+  // an alert waiting for review has to be visible from the other tabs too, now
+  // that notifications no longer have a column of their own.
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [suggestionsAvailable, setSuggestionsAvailable] = useState<boolean>(true);
+
+  const refreshSuggestions = useCallback(async () => {
+    try {
+      const res = await fetch("/api/target-areas/suggestions?status=pending");
+      if (res.status === 503) {
+        setSuggestionsAvailable(false);
+        return;
+      }
+      if (res.ok) {
+        const data = await res.json();
+        setSuggestions(data.suggestions ?? []);
+        setSuggestionsAvailable(true);
+      }
+    } catch (err) {
+      console.error("Failed to load target-area suggestions:", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshSuggestions();
+    const interval = setInterval(refreshSuggestions, 60_000);
+    return () => clearInterval(interval);
+  }, [refreshSuggestions]);
 
   // Fetch active real-world disasters on mount
   useEffect(() => {
@@ -318,29 +348,40 @@ export default function Home() {
   }
 
   return (
-    /* Docked three-column shell: control sidebar, map, live feed. The map is the
-       only region that flexes; the panels hold a fixed width so their content
+    /* Docked two-column shell: tabbed control panel, then the map. The map is
+       the only region that flexes; the panel holds a fixed width so its content
        never reflows as the window resizes.
 
        Below lg the columns stack instead: a fixed-height map on top with the
        control panel scrolling beneath it. Without this the 27rem panel eats a
        narrow window whole and leaves the map a few pixels wide. */
     <main className="flex h-screen w-full flex-col overflow-hidden lg:flex-row" style={{ background: "var(--color-background-body)" }}>
-      {/* Left control panel — docked, scrolls independently of the map. All
-          workspace sections are mounted simultaneously as collapsible rows
-          (Collapsible only toggles display:none on its content, it doesn't
-          unmount) so a panel keeps polling/fetching even while collapsed. */}
-      <aside className="sidebar-panel order-2 w-full flex-1 min-h-0 overflow-y-auto lg:order-1 lg:w-[27rem] lg:flex-none lg:h-full">
-        <CollapsibleGroup type="multiple" value={openPanels} onChange={(v) => setOpenPanels(v as string[])} hasDividers>
-          <Collapsible
-            value="routing"
-            trigger={
-              <span className="flex items-center gap-2">
-                <Navigation className="w-4 h-4" />
-                Evacuation Routing
-              </span>
-            }
-          >
+      {/* Left control panel — a fixed tab strip over a scrolling content area.
+          Given its own surface colour and a right border so it reads as a
+          distinct panel rather than blending into the map. */}
+      <aside
+        className="order-2 w-full flex-1 min-h-0 flex flex-col overflow-hidden lg:order-1 lg:w-[27rem] lg:flex-none lg:h-full lg:border-r"
+        style={{ background: "var(--color-background-surface)", borderColor: "var(--color-border)" }}
+      >
+        <div className="shrink-0 px-6 pt-5 pb-1">
+          <TabList value={activeTab} onChange={(v) => setActiveTab(v as WorkspaceTab)} layout="fill" size="lg">
+            <Tab value="prevention" label="Prevention" icon={<ShieldAlert className="w-4 h-4" />} />
+            <Tab value="routing" label="Routing" icon={<Navigation className="w-4 h-4" />} />
+            <Tab
+              value="autojobs"
+              label="Auto Jobs"
+              icon={<Radar className="w-4 h-4" />}
+              endContent={suggestions.length > 0 ? <Badge variant="error" label={String(suggestions.length)} /> : undefined}
+            />
+          </TabList>
+        </div>
+
+        {/* Every panel stays mounted and is hidden with display:none rather than
+            unmounted, so switching tabs never throws away an in-progress
+            analysis, a computed route, or half-filled form input. Each keeps its
+            own scroll container so tabs remember where they were scrolled to. */}
+        <div className="flex-1 min-h-0">
+          <div className={`h-full overflow-y-auto ${activeTab === "routing" ? "" : "hidden"}`}>
             <RoutingSidebar
               hazardCenter={hazardCenter}
               setHazardCenter={setHazardCenter}
@@ -375,16 +416,9 @@ export default function Home() {
               pendingAutoRoute={pendingAutoRoute}
               clearPendingAutoRoute={() => setPendingAutoRoute(false)}
             />
-          </Collapsible>
-          <Collapsible
-            value="prevention"
-            trigger={
-              <span className="flex items-center gap-2">
-                <ShieldAlert className="w-4 h-4" />
-                Disaster Prevention
-              </span>
-            }
-          >
+          </div>
+
+          <div className={`h-full overflow-y-auto ${activeTab === "prevention" ? "" : "hidden"}`}>
             <PreventionSidebar
               hazardCenter={hazardCenter}
               setHazardCenter={setHazardCenter}
@@ -407,19 +441,23 @@ export default function Home() {
               temperatureHeatmapLoading={temperatureHeatmapLoading}
               onSendToEvacuation={handleSendToEvacuation}
             />
-          </Collapsible>
-          <Collapsible
-            value="autojobs"
-            trigger={
-              <span className="flex items-center gap-2">
-                <Radar className="w-4 h-4" />
-                Auto Jobs
-              </span>
-            }
-          >
-            <AutoJobsSidebar />
-          </Collapsible>
-        </CollapsibleGroup>
+          </div>
+
+          <div className={`h-full overflow-y-auto ${activeTab === "autojobs" ? "" : "hidden"}`}>
+            <AutoJobsSidebar
+              suggestions={suggestions}
+              suggestionsAvailable={suggestionsAvailable}
+              refreshSuggestions={refreshSuggestions}
+              cyclones={liveCyclones}
+              earthquakes={liveEarthquakes}
+              feedLoading={liveFeedLoading}
+              setHazardCenter={setHazardCenter}
+              setMapFlyToCoords={setMapFlyToCoords}
+              setIncidentType={setIncidentType}
+              onReview={() => setActiveTab("prevention")}
+            />
+          </div>
+        </div>
       </aside>
 
       {/* Map region — the only element that flexes. Relative so MapLibre's
@@ -450,21 +488,6 @@ export default function Home() {
           showTemperatureHeatmap={showTemperatureHeatmap}
         />
       </div>
-
-      {/* Right notification panel — docked, always visible so live activity
-          and (once Auto Jobs is wired in) review/publish suggestions aren't
-          hidden behind a mode switch. */}
-      <aside className="sidebar-panel-right order-3 w-full max-h-[45vh] shrink-0 overflow-y-auto xl:w-[24rem] xl:max-h-none xl:h-full">
-        <NotificationPanel
-          cyclones={liveCyclones}
-          earthquakes={liveEarthquakes}
-          feedLoading={liveFeedLoading}
-          setHazardCenter={setHazardCenter}
-          setMapFlyToCoords={setMapFlyToCoords}
-          setIncidentType={setIncidentType}
-          onReview={() => openPanel("prevention")}
-        />
-      </aside>
     </main>
   );
 }

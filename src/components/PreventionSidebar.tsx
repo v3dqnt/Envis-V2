@@ -831,7 +831,7 @@ export default function PreventionSidebar({
        No Card wrapper — that would draw a second border inside the sidebar. */
     <Layout
       header={
-            <LayoutHeader hasDivider padding={4}>
+            <LayoutHeader hasDivider padding={6}>
               <VStack gap={0.5}>
                 <HStack gap={2} vAlign="center">
                   <ShieldCheck className="w-7 h-7 text-accent" />
@@ -844,7 +844,7 @@ export default function PreventionSidebar({
             </LayoutHeader>
           }
           content={
-            <LayoutContent padding={4}>
+            <LayoutContent padding={6} isScrollable={false}>
               <VStack gap={4}>
                 {/* Geocoding */}
                 <HStack gap={2}>
@@ -856,7 +856,7 @@ export default function PreventionSidebar({
 
                 {/* Weather Risk Analysis — shown once hazardCenter is set */}
                 {(weatherLoading || weatherRisk || weatherError) && (
-                  <div className="climate-card" style={{ background: "var(--color-background-body)", border: "1px solid rgba(163,163,163,0.20)", borderRadius: "0.625rem", padding: "0.75rem" }}>
+                  <div className="climate-card" style={{ background: "var(--color-background-body)", border: "1px solid rgba(163,163,163,0.20)", borderRadius: "0.625rem", padding: "1rem" }}>
                     <VStack gap={3}>
                       <HStack hAlign="between" vAlign="center">
                         <HStack gap={1.5} vAlign="center">
@@ -964,7 +964,7 @@ export default function PreventionSidebar({
 
                 {/* 72h forecast — live numerical weather prediction, with lead times */}
                 {(forecastLoading || (forecast?.forecasts?.length ?? 0) > 0) && (
-                  <div className="climate-card" style={{ background: "var(--color-background-body)", border: "1px solid rgba(163,163,163,0.30)", borderRadius: "0.625rem", padding: "0.75rem" }}>
+                  <div className="climate-card" style={{ background: "var(--color-background-body)", border: "1px solid rgba(163,163,163,0.30)", borderRadius: "0.625rem", padding: "1rem" }}>
                     <VStack gap={3}>
                       <HStack hAlign="between" vAlign="center">
                         <HStack gap={1.5} vAlign="center">
@@ -1192,7 +1192,7 @@ export default function PreventionSidebar({
 
                 {/* Temperature Heatmap Toggle */}
                 {hazardCenter && setShowTemperatureHeatmap && (
-                  <div className="climate-card" style={{ background: "var(--color-background-surface)", border: `1px solid ${showTemperatureHeatmap ? '#c1121f4D' : 'rgba(163,163,163,0.20)'}`, borderRadius: "0.625rem", padding: "0.75rem" }}>
+                  <div className="climate-card" style={{ background: "var(--color-background-surface)", border: `1px solid ${showTemperatureHeatmap ? '#c1121f4D' : 'rgba(163,163,163,0.20)'}`, borderRadius: "0.625rem", padding: "1rem" }}>
                     <HStack hAlign="between" vAlign="center">
                       <HStack gap={2} vAlign="center">
                         <Thermometer className="w-4 h-4" style={{ color: showTemperatureHeatmap ? "#c1121f" : "var(--color-text-disabled)" }} />

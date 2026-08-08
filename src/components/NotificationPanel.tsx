@@ -1,19 +1,23 @@
 "use client";
 
 /**
- * Persistent right-hand workspace panel. Always mounted (unlike the old
- * Aegis-Prevent-only GdacsRightFeed) so live activity and Auto Jobs
- * suggestions awaiting review/publish stay visible regardless of which
- * left-column panel is expanded.
+ * Alerts half of the Auto Jobs tab: suggestions the monitor job raised and are
+ * waiting on a human, followed by the global live feed.
+ *
+ * Headerless and props-driven on purpose — it composes inside AutoJobsSidebar's
+ * LayoutContent, so it draws no header or Card chrome of its own, and the
+ * suggestion list is owned by page.tsx (the tab strip needs the same data for
+ * its pending-count badge).
  */
 
-import React, { useCallback, useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import React, { useState } from "react";
+import { VStack, HStack } from "@astryxdesign/core/Layout";
+import { Text } from "@astryxdesign/core/Text";
 import GdacsRightFeed from "@/components/GdacsRightFeed";
-import { Bell, Loader2, Check, X, Eye } from "lucide-react";
+import { Loader2, Check, X, Eye } from "lucide-react";
 import type { CycloneEvent, EarthquakeEvent } from "@/app/api/live-feed/route";
 
-interface Suggestion {
+export interface Suggestion {
   id: string;
   target_area_id: string;
   target_area_name: string;
@@ -27,18 +31,23 @@ interface Suggestion {
 }
 
 interface NotificationPanelProps {
+  suggestions: Suggestion[];
+  suggestionsAvailable: boolean;
+  refreshSuggestions: () => void;
   cyclones: CycloneEvent[];
   earthquakes: EarthquakeEvent[];
   feedLoading: boolean;
   setHazardCenter: (coords: [number, number] | null) => void;
   setMapFlyToCoords: (coords: [number, number] | null) => void;
   setIncidentType: (type: string) => void;
-  /** Called when the operator wants to jump into a fuller review — expands the
-   * Prevention panel; this component has already set the location/hazard. */
+  /** Switches to the Prevention tab once this component has set the location. */
   onReview: () => void;
 }
 
 export default function NotificationPanel({
+  suggestions,
+  suggestionsAvailable,
+  refreshSuggestions,
   cyclones,
   earthquakes,
   feedLoading,
@@ -47,35 +56,7 @@ export default function NotificationPanel({
   setIncidentType,
   onReview,
 }: NotificationPanelProps) {
-  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
-  const [suggestionsAvailable, setSuggestionsAvailable] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
-
-  const loadSuggestions = useCallback(async () => {
-    try {
-      const res = await fetch("/api/target-areas/suggestions?status=pending");
-      if (res.status === 503) {
-        setSuggestionsAvailable(false);
-        return;
-      }
-      if (res.ok) {
-        const data = await res.json();
-        setSuggestions(data.suggestions ?? []);
-        setSuggestionsAvailable(true);
-      }
-    } catch (err) {
-      console.error("Failed to load target-area suggestions:", err);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadSuggestions();
-    // Auto Jobs suggestions can appear between manual "Run monitor now" clicks
-    // or a scheduled run — poll while the workspace is open rather than
-    // requiring a manual refresh.
-    const interval = setInterval(loadSuggestions, 60_000);
-    return () => clearInterval(interval);
-  }, [loadSuggestions]);
 
   const handleReview = (s: Suggestion) => {
     setHazardCenter([s.lng, s.lat]);
@@ -92,7 +73,7 @@ export default function NotificationPanel({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: s.id, status: "dismissed" }),
       });
-      setSuggestions((prev) => prev.filter((x) => x.id !== s.id));
+      refreshSuggestions();
     } finally {
       setBusyId(null);
     }
@@ -103,13 +84,12 @@ export default function NotificationPanel({
     try {
       const confidence = s.risk_snapshot?.confidence ?? "medium";
       const severity = confidence === "high" ? "high" : confidence === "low" ? "low" : "medium";
-      const hazardType = s.hazard_types[0];
 
       const publishRes = await fetch("/api/alerts/publish", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          hazardType,
+          hazardType: s.hazard_types[0],
           severity,
           source: "manual",
           title: `${s.hazard_types.join(" + ")} risk near ${s.target_area_name}`,
@@ -128,7 +108,7 @@ export default function NotificationPanel({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: s.id, status: "published", publishedAlertId: alert?.id }),
       });
-      setSuggestions((prev) => prev.filter((x) => x.id !== s.id));
+      refreshSuggestions();
     } catch (err) {
       console.error("Failed to publish suggestion:", err);
     } finally {
@@ -137,61 +117,130 @@ export default function NotificationPanel({
   };
 
   return (
-    <div className="w-full flex flex-col gap-3">
-      {suggestionsAvailable && suggestions.length > 0 && (
-        <Card className="shadow-2xl border-0 bg-neutral-900/92 backdrop-blur-xl border-t-2 border-neutral-500 rounded-2xl overflow-hidden text-white">
-          <CardHeader className="pb-3 border-b border-neutral-800 bg-neutral-950/40">
-            <CardTitle className="text-lg font-black tracking-tight flex items-center gap-2 text-white">
-              <Bell className="w-5 h-5 text-neutral-300" />
-              Auto Job Suggestions
-            </CardTitle>
-            <CardDescription className="text-neutral-400 font-semibold text-[11px] mt-0.5">
-              Flagged automatically — nothing here has been published yet
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="pt-3 space-y-2">
-            {suggestions.map((s) => (
-              <div key={s.id} className="p-2.5 bg-neutral-950/50 border border-neutral-800 rounded-xl">
-                <div className="flex items-center gap-1.5 flex-wrap mb-1">
+    <VStack gap={4}>
+      <VStack gap={2}>
+        <HStack hAlign="between" vAlign="center">
+          <Text type="supporting" color="secondary" weight="bold">
+            Pending review ({suggestions.length})
+          </Text>
+        </HStack>
+
+        {!suggestionsAvailable ? (
+          <Text type="supporting" color="secondary">
+            Suggestions need Supabase configured.
+          </Text>
+        ) : suggestions.length === 0 ? (
+          <Text type="supporting" color="secondary">
+            Nothing flagged — target areas are within normal ranges.
+          </Text>
+        ) : (
+          suggestions.map((s) => (
+            <div
+              key={s.id}
+              style={{
+                background: "var(--color-background-body)",
+                border: "1px solid var(--color-border)",
+                borderRadius: "0.625rem",
+                padding: "1rem",
+              }}
+            >
+              <VStack gap={2}>
+                <HStack gap={1} vAlign="center" style={{ flexWrap: "wrap" }}>
                   {s.hazard_types.map((h) => (
-                    <span key={h} className="text-[8px] font-black px-1.5 py-0.5 rounded-full border border-neutral-600 text-neutral-200 bg-neutral-800/60 uppercase tracking-wide">
+                    <span
+                      key={h}
+                      style={{
+                        fontSize: "0.625rem",
+                        fontWeight: 700,
+                        letterSpacing: "0.06em",
+                        textTransform: "uppercase",
+                        padding: "0.125rem 0.5rem",
+                        borderRadius: "999px",
+                        border: "1px solid var(--color-border-emphasized)",
+                        color: "var(--color-text-primary)",
+                      }}
+                    >
                       {h}
                     </span>
                   ))}
-                </div>
-                <p className="text-[11px] font-bold text-neutral-100">
-                  {s.target_area_name}
-                  {s.city_name ? ` · ${s.city_name}` : ""}
-                </p>
-                <p className="text-[10px] text-neutral-400 mt-0.5">{s.reason}</p>
-                <div className="flex items-center gap-1.5 mt-2">
+                </HStack>
+
+                <VStack gap={0.5}>
+                  <Text type="body" weight="bold">
+                    {s.target_area_name}
+                    {s.city_name ? ` · ${s.city_name}` : ""}
+                  </Text>
+                  <Text type="supporting" color="secondary">
+                    {s.reason}
+                  </Text>
+                </VStack>
+
+                <HStack gap={1.5} vAlign="center">
                   <button
                     onClick={() => handleReview(s)}
-                    className="flex-1 py-1.5 text-[10px] font-bold rounded-lg border border-neutral-700 text-neutral-200 hover:bg-neutral-800 transition-colors flex items-center justify-center gap-1"
+                    style={{
+                      flex: 1,
+                      padding: "0.375rem 0.5rem",
+                      fontSize: "0.6875rem",
+                      fontWeight: 700,
+                      borderRadius: "0.5rem",
+                      border: "1px solid var(--color-border-emphasized)",
+                      background: "transparent",
+                      color: "var(--color-text-primary)",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "0.25rem",
+                    }}
                   >
                     <Eye className="w-3 h-3" /> Review
                   </button>
                   <button
                     onClick={() => handlePublish(s)}
                     disabled={busyId === s.id}
-                    className="flex-1 py-1.5 text-[10px] font-bold rounded-lg border border-neutral-500 bg-neutral-200 text-neutral-900 hover:bg-white transition-colors flex items-center justify-center gap-1 disabled:opacity-50"
+                    style={{
+                      flex: 1,
+                      padding: "0.375rem 0.5rem",
+                      fontSize: "0.6875rem",
+                      fontWeight: 700,
+                      borderRadius: "0.5rem",
+                      border: "1px solid var(--color-accent)",
+                      background: "var(--color-accent)",
+                      color: "var(--color-on-accent)",
+                      cursor: "pointer",
+                      opacity: busyId === s.id ? 0.5 : 1,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "0.25rem",
+                    }}
                   >
-                    {busyId === s.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />} Publish
+                    {busyId === s.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                    Publish
                   </button>
                   <button
                     onClick={() => handleDismiss(s)}
                     disabled={busyId === s.id}
-                    aria-label="Dismiss"
-                    className="py-1.5 px-2 text-[10px] font-bold rounded-lg border border-neutral-800 text-neutral-500 hover:text-neutral-300 transition-colors disabled:opacity-50"
+                    aria-label={`Dismiss suggestion for ${s.target_area_name}`}
+                    style={{
+                      padding: "0.375rem 0.5rem",
+                      borderRadius: "0.5rem",
+                      border: "1px solid var(--color-border)",
+                      background: "transparent",
+                      color: "var(--color-text-disabled)",
+                      cursor: "pointer",
+                      opacity: busyId === s.id ? 0.5 : 1,
+                    }}
                   >
                     <X className="w-3 h-3" />
                   </button>
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
+                </HStack>
+              </VStack>
+            </div>
+          ))
+        )}
+      </VStack>
 
       <GdacsRightFeed
         cyclones={cyclones}
@@ -201,6 +250,6 @@ export default function NotificationPanel({
         setMapFlyToCoords={setMapFlyToCoords}
         setIncidentType={setIncidentType}
       />
-    </div>
+    </VStack>
   );
 }

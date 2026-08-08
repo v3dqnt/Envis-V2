@@ -1,10 +1,10 @@
 "use client";
 
 /**
- * Auto Jobs — manage the target-area watchlist that /api/target-areas/monitor
- * scans on a schedule. Suggestions the monitor raises don't live here; they
- * render in the persistent NotificationPanel (the "review and publish"
- * surface), so this panel stays focused on "what am I watching."
+ * Auto Jobs & Alerts — the target-area watchlist that /api/target-areas/monitor
+ * scans on a schedule, followed by what that monitoring produced: suggestions
+ * awaiting review, then the global live feed. Watching and reviewing live in
+ * one tab because they're two halves of the same loop.
  */
 
 import React, { useEffect, useState, useCallback } from "react";
@@ -15,7 +15,9 @@ import { Button } from "@astryxdesign/core/Button";
 import { TextInput } from "@astryxdesign/core/TextInput";
 import { Item } from "@astryxdesign/core/Item";
 import { Divider } from "@astryxdesign/core/Divider";
+import NotificationPanel, { type Suggestion } from "@/components/NotificationPanel";
 import { Radar, MapPin, X, Loader2 } from "lucide-react";
+import type { CycloneEvent, EarthquakeEvent } from "@/app/api/live-feed/route";
 
 interface TargetArea {
   id: string;
@@ -27,7 +29,31 @@ interface TargetArea {
   created_at: string;
 }
 
-export default function AutoJobsSidebar() {
+interface AutoJobsSidebarProps {
+  suggestions: Suggestion[];
+  suggestionsAvailable: boolean;
+  refreshSuggestions: () => void;
+  cyclones: CycloneEvent[];
+  earthquakes: EarthquakeEvent[];
+  feedLoading: boolean;
+  setHazardCenter: (coords: [number, number] | null) => void;
+  setMapFlyToCoords: (coords: [number, number] | null) => void;
+  setIncidentType: (type: string) => void;
+  onReview: () => void;
+}
+
+export default function AutoJobsSidebar({
+  suggestions,
+  suggestionsAvailable,
+  refreshSuggestions,
+  cyclones,
+  earthquakes,
+  feedLoading,
+  setHazardCenter,
+  setMapFlyToCoords,
+  setIncidentType,
+  onReview,
+}: AutoJobsSidebarProps) {
   const [targetAreas, setTargetAreas] = useState<TargetArea[]>([]);
   const [loading, setLoading] = useState(false);
   const [nameQuery, setNameQuery] = useState("");
@@ -109,6 +135,9 @@ export default function AutoJobsSidebar() {
       const data = await res.json();
       if (res.ok) {
         setMonitorNote(`Scanned ${data.areasScanned} area(s), ${data.suggestionsCreated} new suggestion(s).`);
+        // Anything the run just raised should appear below without waiting for
+        // the next poll — and the tab badge reads from the same list.
+        refreshSuggestions();
       } else {
         setMonitorNote(data.error ?? "Monitor run failed.");
       }
@@ -125,11 +154,11 @@ export default function AutoJobsSidebar() {
        No Card wrapper — that would draw a second border inside the sidebar. */
     <Layout
       header={
-        <LayoutHeader hasDivider padding={4}>
+        <LayoutHeader hasDivider padding={6}>
           <VStack gap={0.5}>
             <HStack gap={2} vAlign="center">
               <Radar className="w-7 h-7 text-accent" />
-              <Heading level={2}>Auto Jobs</Heading>
+              <Heading level={2}>Auto Jobs &amp; Alerts</Heading>
             </HStack>
             <Text type="supporting" color="secondary">
               Watch a location — get flagged automatically when conditions cross a threshold
@@ -138,7 +167,7 @@ export default function AutoJobsSidebar() {
         </LayoutHeader>
       }
       content={
-        <LayoutContent padding={4}>
+        <LayoutContent padding={6} isScrollable={false}>
           <VStack gap={4}>
             {unavailable ? (
               <Text type="supporting" color="secondary">
@@ -214,6 +243,24 @@ export default function AutoJobsSidebar() {
                 </VStack>
               </>
             )}
+
+            <Divider />
+
+            {/* Alerts half: what the monitoring produced, plus the global live
+                feed. Rendered outside the `unavailable` branch above so the
+                feed still works when Supabase isn't configured. */}
+            <NotificationPanel
+              suggestions={suggestions}
+              suggestionsAvailable={suggestionsAvailable}
+              refreshSuggestions={refreshSuggestions}
+              cyclones={cyclones}
+              earthquakes={earthquakes}
+              feedLoading={feedLoading}
+              setHazardCenter={setHazardCenter}
+              setMapFlyToCoords={setMapFlyToCoords}
+              setIncidentType={setIncidentType}
+              onReview={onReview}
+            />
           </VStack>
         </LayoutContent>
       }

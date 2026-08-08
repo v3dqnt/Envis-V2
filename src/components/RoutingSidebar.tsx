@@ -1027,7 +1027,7 @@ export default function RoutingSidebar({
     <>
       <Layout
         header={
-          <LayoutHeader hasDivider padding={4}>
+          <LayoutHeader hasDivider padding={6}>
             <VStack gap={0.5}>
               <HStack gap={2} vAlign="center">
                 <ShieldAlert className="w-7 h-7 text-accent" />
@@ -1040,9 +1040,9 @@ export default function RoutingSidebar({
           </LayoutHeader>
         }
         content={
-          <LayoutContent padding={4}>
+          <LayoutContent padding={6} isScrollable={false}>
             <VStack gap={4}>
-                  <TabList value={tab} onChange={setTab} layout="fill" hasDivider>
+                  <TabList value={tab} onChange={setTab} layout="fill" size="sm" hasDivider>
                     <Tab value="hazard" label="1. Affected" icon={<Target className="w-3.5 h-3.5" />} />
                     <Tab value="route" label="2. Navigate" icon={<Navigation className="w-3.5 h-3.5" />} />
                     <Tab value="report" label="3. Report" icon={<AlertTriangle className="w-3.5 h-3.5" />} />
@@ -1453,9 +1453,8 @@ export default function RoutingSidebar({
               onOpenChange={() => setAlertSuccess(false)}
             />
           }
-          className="sidebar-panel"
           content={
-            <LayoutContent padding={4}>
+            <LayoutContent padding={5}>
               {alertedFacilities && (
                 <VStack gap={4}>
                   <Card variant="muted" padding={3}>

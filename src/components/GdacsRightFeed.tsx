@@ -2,19 +2,7 @@
 
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import {
-  Radio,
-  Loader2,
-  AlertTriangle,
-  Waves,
-  Activity,
-  Wind,
-  Globe,
-  Zap,
-  Droplets,
-  TriangleAlert,
-  Database,
-} from "lucide-react";
+import { Radio, Loader2, Waves, Activity, Wind, Globe, Zap, Database } from "lucide-react";
 import type { CycloneEvent, EarthquakeEvent } from "@/app/api/live-feed/route";
 
 interface LiveFeedProps {
@@ -49,12 +37,10 @@ const alertDot: Record<string, string> = {
   green: "bg-emerald-500",
 };
 
-const SOURCE_COLORS: Record<string, string> = {
-  GDACS: "text-emerald-400 border-emerald-500/30 bg-emerald-500/10",
-  USGS: "text-blue-400 border-blue-500/30 bg-blue-500/10",
-  "Tomorrow.io": "text-violet-400 border-violet-500/30 bg-violet-500/10",
-  XWeather: "text-sky-400 border-sky-500/30 bg-sky-500/10",
-};
+// Which feed a row came from is provenance, not risk — it gets neutral chrome
+// so it doesn't compete with the alert-level colours below, which are the only
+// thing in this panel that should read as urgency.
+const SOURCE_BADGE = "text-neutral-400 border-neutral-700 bg-neutral-800/40";
 
 function magToColor(mag: number): string {
   if (mag >= 7.0) return "text-red-400 bg-red-500/15";
@@ -83,10 +69,10 @@ export default function GdacsRightFeed({
           a real flex layout — that let this card escape its column and pin to the
           viewport corner instead of sitting inside the reserved right-hand aside.
           Now a normal flow child; the parent aside owns width and scrolling. */}
-      <Card className="shadow-2xl border-0 bg-neutral-900/92 backdrop-blur-xl supports-[backdrop-filter]:bg-neutral-900/80 border-t-2 border-emerald-500 rounded-2xl overflow-hidden text-white flex flex-col">
+      <Card className="shadow-2xl border-0 bg-neutral-900/92 backdrop-blur-xl supports-[backdrop-filter]:bg-neutral-900/80 border-t-2 border-neutral-600 rounded-2xl overflow-hidden text-white flex flex-col">
         <CardHeader className="pb-3 border-b border-neutral-800 bg-neutral-950/40 shrink-0">
           <CardTitle className="text-lg font-black tracking-tight flex items-center gap-2 text-white">
-            <Radio className="w-5 h-5 text-emerald-400 animate-pulse shrink-0" />
+            <Radio className="w-5 h-5 text-neutral-300 animate-pulse shrink-0" />
             Global Live Feed
             {feedLoading && <Loader2 className="w-4 h-4 animate-spin text-neutral-400 ml-auto" />}
           </CardTitle>
@@ -121,7 +107,7 @@ export default function GdacsRightFeed({
               onClick={() => setTab("cyclones")}
               className={`flex-1 py-2 text-[11px] font-black tracking-wide transition-all flex items-center justify-center gap-1.5 ${
                 tab === "cyclones"
-                  ? "bg-emerald-500/20 text-emerald-300 border-r border-neutral-800"
+                  ? "bg-neutral-700/50 text-neutral-100 border-r border-neutral-800"
                   : "text-neutral-500 hover:text-neutral-300 border-r border-neutral-800"
               }`}
             >
@@ -132,7 +118,7 @@ export default function GdacsRightFeed({
               onClick={() => setTab("earthquakes")}
               className={`flex-1 py-2 text-[11px] font-black tracking-wide transition-all flex items-center justify-center gap-1.5 ${
                 tab === "earthquakes"
-                  ? "bg-orange-500/20 text-orange-300"
+                  ? "bg-neutral-700/50 text-neutral-100"
                   : "text-neutral-500 hover:text-neutral-300"
               }`}
             >
@@ -154,7 +140,7 @@ export default function GdacsRightFeed({
 
               {feedLoading && cyclones.length === 0 ? (
                 <div className="text-center py-8 text-xs text-neutral-400 font-semibold flex flex-col items-center gap-2">
-                  <Loader2 className="w-6 h-6 animate-spin text-emerald-400" />
+                  <Loader2 className="w-6 h-6 animate-spin text-neutral-300" />
                   Querying cyclone feeds...
                 </div>
               ) : cyclones.length === 0 ? (
@@ -167,7 +153,7 @@ export default function GdacsRightFeed({
                     const colors = alertBg[evt.alertLevel] || alertBg.green;
                     const hover = alertHover[evt.alertLevel] || alertHover.green;
                     const dot = alertDot[evt.alertLevel] || alertDot.green;
-                    const sourceColor = SOURCE_COLORS[evt.source] || "text-neutral-400 border-neutral-700 bg-neutral-800/30";
+                    const sourceColor = SOURCE_BADGE;
                     return (
                       <div
                         key={evt.id}
@@ -183,7 +169,7 @@ export default function GdacsRightFeed({
                         <div className="flex items-center justify-between gap-2 mb-1.5">
                           <div className="flex items-center gap-2 min-w-0">
                             <span className={`w-2 h-2 rounded-full shrink-0 ${dot}`} />
-                            <h5 className="text-[11px] font-bold text-neutral-100 truncate group-hover:text-emerald-300 transition-colors">
+                            <h5 className="text-[11px] font-bold text-neutral-100 truncate group-hover:text-white transition-colors">
                               {evt.name}
                             </h5>
                           </div>
@@ -242,7 +228,7 @@ export default function GdacsRightFeed({
                     const colors = alertBg[evt.alertLevel] || alertBg.green;
                     const hover = alertHover[evt.alertLevel] || alertHover.green;
                     const magColor = magToColor(evt.magnitude);
-                    const sourceColor = SOURCE_COLORS[evt.source] || "text-neutral-400 border-neutral-700 bg-neutral-800/30";
+                    const sourceColor = SOURCE_BADGE;
                     return (
                       <div
                         key={evt.id}
@@ -264,7 +250,7 @@ export default function GdacsRightFeed({
 
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between gap-1 mb-0.5">
-                              <h5 className="text-[11px] font-bold text-neutral-100 truncate group-hover:text-orange-300 transition-colors">
+                              <h5 className="text-[11px] font-bold text-neutral-100 truncate group-hover:text-white transition-colors">
                                 {evt.name}
                               </h5>
                               <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-full border shrink-0 uppercase ${colors}`}>
@@ -312,7 +298,7 @@ export default function GdacsRightFeed({
           <div className="pt-1 border-t border-neutral-800 flex items-center gap-1.5 flex-wrap shrink-0">
             <Database className="w-3 h-3 text-neutral-600 shrink-0" />
             {["GDACS", "USGS", "Tomorrow.io", "XWeather"].map((src) => (
-              <span key={src} className={`text-[8px] font-bold px-1.5 py-0.5 rounded border ${SOURCE_COLORS[src] || "text-neutral-500 border-neutral-700"}`}>
+              <span key={src} className={`text-[8px] font-bold px-1.5 py-0.5 rounded border ${SOURCE_BADGE}`}>
                 {src}
               </span>
             ))}
