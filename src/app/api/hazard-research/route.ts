@@ -167,7 +167,7 @@ async function geocode(areaName: string, cityName: string): Promise<[number, num
     try {
       const res = await fetch(
         `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`,
-        { headers: { "User-Agent": "Envis-Aegis/1.0 (climate resilience mapping)" }, cache: "no-store" }
+        { headers: { "User-Agent": "GAIA/1.0 (climate resilience mapping)" }, cache: "no-store" }
       );
       if (!res.ok) continue;
       const data = await res.json();

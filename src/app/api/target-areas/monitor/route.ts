@@ -16,7 +16,7 @@ import type { DisasterRisk } from "@/app/api/weather-risk/route";
  * climatological signal the dashboard already fetches the moment a location
  * is set). No forecast-risk, no hazard-zones, no vulnerability-zones, no
  * OpenAI calls — those only ever run once a human opens a suggestion in
- * Aegis Prevent (see AutoJobsSidebar's "Review" action).
+ * GAIA Prevent (see AutoJobsSidebar's "Review" action).
  */
 
 function reasonFor(risk: DisasterRisk): string {

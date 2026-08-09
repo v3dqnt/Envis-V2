@@ -474,7 +474,7 @@ export default function MapDashboard({
           .addTo(m);
       });
 
-      // 5b. Hazard Origin Points & Spread Paths — multi-hazard toggle view (Aegis Prevent)
+      // 5b. Hazard Origin Points & Spread Paths — multi-hazard toggle view (GAIA Prevent)
       const hazardColorExpr: any = [
         'match', ['get', 'hazardType'],
         'Wildfire', '#c1121f',

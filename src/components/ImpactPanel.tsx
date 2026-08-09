@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Earthquake and tornado impact analysis, shown in Aegis Route once the
+ * Earthquake and tornado impact analysis, shown in GAIA Route once the
  * operator has classified the incident and placed an epicentre. Talks to
  * /api/earthquake-impact and /api/tornado, and lifts the resulting map
  * geometry up to page.tsx via setEarthquakeBands / setTornado so MapDashboard

@@ -56,4 +56,22 @@
     background: var(--color-background-surface);
     border-left: 1px solid var(--color-border);
   }
+
+}
+
+/* Astryx's LayoutContent ships `overflow-y: clip`. That is fine for a panel
+   that fits, but every sidebar here grows past the viewport once a hazard
+   analysis renders (forecast drivers, zone lists, the on-ground report), and
+   clip hard-cuts the overflow with no way to reach it. The Layout also fills
+   its parent at height:100%, so the scroll container wrapping it in page.tsx
+   never sees the overflow either and cannot compensate.
+
+   Restoring `auto` scrolls the content area while leaving LayoutHeader pinned,
+   which is what these panels were laid out for.
+
+   Deliberately UNLAYERED: astryx.css is imported without a layer above, and an
+   unlayered rule beats every named layer regardless of specificity. Putting
+   this in `@layer base` loses to Astryx and silently does nothing. */
+aside .astryx-layout-content {
+  overflow-y: auto;
 }

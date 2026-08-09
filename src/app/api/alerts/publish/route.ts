@@ -9,7 +9,7 @@ const VALID_SOURCE = new Set(["forecast", "polygon", "gdacs", "manual"]);
  * be matched against it. This is the handoff point between the web app's
  * prediction engines (forecast-risk, hazard-zones, GDACS) and the mobile
  * delivery pipeline — none of those engines write to Supabase themselves,
- * they stay pure prediction services. Something calls this route (Aegis
+ * they stay pure prediction services. Something calls this route (GAIA
  * Prevent's "Publish Alert" action, or a scheduled job) once a prediction is
  * judged worth surfacing.
  */

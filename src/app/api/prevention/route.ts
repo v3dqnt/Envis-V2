@@ -90,7 +90,7 @@ ADVANCED MATERIALS REFERENCE (cite specific materials by name wherever relevant 
 - Fiber-reinforced polymer (FRP) retrofitting and hydrophobic/corrosion-resistant coatings — strengthen and waterproof existing bridges, buildings and coastal infrastructure without full replacement. Relevant to: Flooding, Tropical Cyclone, Landslide, Extreme Cold.
 - Fire-retardant building materials and impact-resistant composites — defensible structural protection in fire-prone areas. Relevant to: Wildfire.`;
 
-    const prompt = `You are Aegis Mitigation Engine, an AI disaster prevention and structural safety auditor.
+    const prompt = `You are GAIA Mitigation Engine, an AI disaster prevention and structural safety auditor.
 Analyze the threat profile for the following context:
 - Primary Disaster Threat: ${incidentType}
 - Target Region/City: ${cityName || "Local Area"}
@@ -129,7 +129,7 @@ Do not include any explanation or markdown formatting outside the JSON. The outp
       messages: [
         {
           role: "system",
-          content: "You are Aegis Mitigation Engine, an elite structural safety auditor. You return only valid JSON matching the requested schema.",
+          content: "You are GAIA Mitigation Engine, an elite structural safety auditor. You return only valid JSON matching the requested schema.",
         },
         {
           role: "user",

@@ -3,7 +3,7 @@ import { getSupabaseAdmin, supabaseUnavailable } from "@/lib/supabase";
 import { formatRoute, formatShelter } from "@/lib/evacuationRoutes";
 
 /**
- * Transmit the evacuation routes Aegis Route computed for a published alert.
+ * Transmit the evacuation routes GAIA Route computed for a published alert.
  *
  * The dashboard already solves the hard part — a real road route around the
  * hazard dome, with live traffic — but until now that stayed on the operator's

@@ -622,7 +622,7 @@ export default function RoutingSidebar({
   };
 
   // Core route-generation logic, shared between the manual form submit and the
-  // auto-triggered "Route to Safety" quick action coming from Aegis Prevent.
+  // auto-triggered "Route to Safety" quick action coming from GAIA Prevent.
   const runRoute = async (start: [number, number], end: [number, number]) => {
     setErrorMessage("");
     setRouteGeoJSON(null);
@@ -774,7 +774,7 @@ export default function RoutingSidebar({
     await runRoute(start, end);
   };
 
-  // Auto-triggered by "Route to Safety" in Aegis Prevent: hazardCenter/incidentType/radius
+  // Auto-triggered by "Route to Safety" in GAIA Prevent: hazardCenter/incidentType/radius
   // have already been carried over as shared state, so once the AI-suggested shelters load
   // we pick the nearest one and run routing immediately without any user input.
   const autoRouteFiredRef = useRef(false);
@@ -807,7 +807,7 @@ export default function RoutingSidebar({
   const handleExportRoute = () => {
     const lines: string[] = [];
     const now = new Date().toISOString();
-    lines.push(`# Aegis Route — Evacuation Export`);
+    lines.push(`# GAIA Route — Evacuation Export`);
     lines.push("");
     lines.push(`**Incident type:** ${incidentType}`);
     lines.push(`**Generated:** ${now}`);
@@ -1051,7 +1051,7 @@ export default function RoutingSidebar({
             <VStack gap={0.5}>
               <HStack gap={2} vAlign="center">
                 <ShieldAlert className="w-7 h-7 text-accent" />
-                <Heading level={2}>Aegis Route</Heading>
+                <Heading level={2}>GAIA Route</Heading>
               </HStack>
               <Text type="supporting" color="secondary">
                 AI-powered disaster routing &amp; emergency dome placement

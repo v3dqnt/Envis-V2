@@ -38,7 +38,7 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("prevention");
 
   // When set, RoutingSidebar auto-picks the nearest shelter and generates the
-  // evacuation route as soon as it mounts — set by "Route to Safety" in Aegis Prevent.
+  // evacuation route as soon as it mounts — set by "Route to Safety" in GAIA Prevent.
   const [pendingAutoRoute, setPendingAutoRoute] = useState<boolean>(false);
 
   const handleSendToEvacuation = (hazardType: string, center: [number, number], radiusMeters: number) => {
@@ -74,7 +74,7 @@ export default function Home() {
   const [tornado, setTornado] = useState<any>(null);
 
   // Vulnerability zones state (for map highlighting) — aggregated across all
-  // analyzed + toggled-visible hazards in Aegis Prevent's multi-hazard view
+  // analyzed + toggled-visible hazards in GAIA Prevent's multi-hazard view
   const [vulnerabilityZones, setVulnerabilityZones] = useState<any>(null);
   const [hazardPolygons, setHazardPolygons] = useState<any>(null);
   const [hazardOrigins, setHazardOrigins] = useState<any>(null);
@@ -349,7 +349,7 @@ export default function Home() {
         <VStack gap={3} hAlign="center">
           <Loader2 className="w-8 h-8 animate-spin" style={{ color: "var(--color-accent)" }} />
           <Text type="supporting" color="inherit" weight="bold" style={{ color: "var(--color-text-primary)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
-            Initializing Aegis Command Center...
+            Initializing GAIA Command Center...
           </Text>
         </VStack>
       </main>

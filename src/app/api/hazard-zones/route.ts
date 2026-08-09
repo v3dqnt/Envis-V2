@@ -62,7 +62,7 @@ async function runOverpass(query: string): Promise<OverpassElement[]> {
           body: `data=${encodeURIComponent(query)}`,
           headers: {
             "Content-Type": "application/x-www-form-urlencoded",
-            "User-Agent": "Envis-Aegis/1.0 (climate resilience mapping)",
+            "User-Agent": "GAIA/1.0 (climate resilience mapping)",
           },
           cache: "no-store",
         },

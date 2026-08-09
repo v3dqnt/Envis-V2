@@ -3,7 +3,7 @@ import "./globals.css";
 import AstryxProvider from "@/components/AstryxProvider";
 
 export const metadata: Metadata = {
-  title: "Aegis Disaster Evacuation Control",
+  title: "GAIA Disaster Evacuation Control",
   description: "Real-time AI-powered disaster routing & emergency responder dashboard",
 };
 
