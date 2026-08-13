@@ -60,7 +60,11 @@ async function runOverpass(query: string): Promise<OverpassElement[]> {
       const data = JSON.parse(text);
       const elements = (data.elements || []) as OverpassElement[];
       console.log(`[hazard-zones] ${url} -> ${elements.length} elements`);
-      if (elements.length > 0) return elements;
+      // A parsed response is authoritative even when empty — the mirrors serve the same
+      // OSM extract, so "no forest here" is a real answer, not a mirror failure. Retrying
+      // it against every mirror costs three 30s timeouts and then still returns nothing,
+      // which reads to the caller as a failed lookup and silently downgrades to AI circles.
+      return elements;
     } catch (err: any) {
       console.log(`[hazard-zones] ${url} -> ${err.message}`);
       continue;

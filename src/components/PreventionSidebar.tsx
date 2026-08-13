@@ -140,7 +140,18 @@ const RISK_TO_INCIDENT: Record<string, string> = {
 
 // Hazards with a real physical polygon model in /api/hazard-zones (OSM geometry +
 // elevation + weather). Everything else falls back to AI-estimated circular zones.
-const POLYGON_MODELLED = new Set(["Wildfire", "Flooding", "Landslide", "Thunderstorm", "Tropical Cyclone"]);
+//
+// This must stay in sync with the hazardType branches in /api/hazard-zones/route.ts —
+// a type handled there but missing here silently downgrades to circles, because
+// usePolygons gates whether the polygon endpoint is called at all.
+const POLYGON_MODELLED = new Set([
+  "Wildfire",
+  "Flooding",
+  "Flash Flood",
+  "Landslide",
+  "Thunderstorm",
+  "Tropical Cyclone",
+]);
 
 interface HazardAnalysis {
   loading: boolean;
