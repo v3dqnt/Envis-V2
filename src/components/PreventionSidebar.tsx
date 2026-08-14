@@ -142,7 +142,10 @@ const RISK_TO_INCIDENT: Record<string, string> = {
 
 // Hazards with a real physical polygon model in /api/hazard-zones (OSM geometry +
 // elevation + weather). Everything else falls back to AI-estimated circular zones.
-const POLYGON_MODELLED = new Set(["Wildfire", "Flooding", "Landslide", "Thunderstorm", "Tropical Cyclone"]);
+// A polygon-modelled hazard NEVER falls back to an AI circle, even when its real
+// query finds nothing — an honest empty result (with the API's own note on why) beats
+// a fabricated circle for a hazard we actually have a physical model for.
+const POLYGON_MODELLED = new Set(["Wildfire", "Flooding", "Landslide", "Thunderstorm", "Tropical Cyclone", "Flash Flood"]);
 
 // Hazards with a Tavily-backed on-ground report (/api/hazard-research) — matches the
 // hazard set that route understands search phrasing for.
@@ -173,7 +176,9 @@ interface HazardAnalysis {
   error: string | null;
   zones: any[];
   polygons: any[];
-  zoneSource: "polygon" | "ai" | null;
+  zoneSource: "polygon" | "ai" | "none" | null;
+  /** Why a polygon-modelled hazard found nothing — surfaced instead of an AI circle. */
+  note: string | null;
   origin: [number, number] | null;
   path: [number, number][] | null;
   strategyMarkdown: string;
@@ -365,8 +370,8 @@ function buildMarkdownReport(
   lines.push(`| Hazard | Zone type | Zones | Shown on map |`);
   lines.push(`|---|---|---|---|`);
   for (const [type, a] of analyzed) {
-    const count = a.zoneSource === "polygon" ? a.polygons.length : a.zones.length;
-    const kind = a.zoneSource === "polygon" ? "Real map polygons" : "AI-estimated";
+    const count = a.zoneSource === "polygon" || a.zoneSource === "none" ? a.polygons.length : a.zones.length;
+    const kind = a.zoneSource === "polygon" ? "Real map polygons" : a.zoneSource === "none" ? "Real map polygons (none found)" : "AI-estimated";
     lines.push(`| ${type} | ${kind} | ${count} | ${visible.has(type) ? "yes" : "no"} |`);
   }
   lines.push("");
@@ -416,6 +421,11 @@ function buildMarkdownReport(
           `| ${i + 1} | ${p.severity ?? "—"} | ${p.name ?? "—"} | \`${fmt(g.centroid[1])}, ${fmt(g.centroid[0])}\` | \`${g.bbox.map((v) => fmt(v, 4)).join(", ")}\` | ${p.areaKm2 ?? "—"} | ${(p.reason ?? "").replace(/\|/g, "/")} |`
         );
       });
+      lines.push("");
+    } else if (a.zoneSource === "none") {
+      lines.push(`### Identified areas — none found`);
+      lines.push("");
+      lines.push(a.note || "No real-world zones identified within the search radius for this hazard.");
       lines.push("");
     } else if (a.zones.length > 0) {
       lines.push(`### Identified areas — ${a.zones.length} AI-estimated zones`);
@@ -592,7 +602,7 @@ export default function PreventionSidebar({
     if (!hazardCenter) return;
     setHazardAnalyses((prev) => ({
       ...prev,
-      [hazardType]: { ...(prev[hazardType] as HazardAnalysis), loading: true, error: null, analyzed: prev[hazardType]?.analyzed || false, zones: prev[hazardType]?.zones || [], polygons: prev[hazardType]?.polygons || [], zoneSource: prev[hazardType]?.zoneSource || null, origin: prev[hazardType]?.origin || null, path: prev[hazardType]?.path || null, strategyMarkdown: prev[hazardType]?.strategyMarkdown || "", checklist: prev[hazardType]?.checklist || [], metrics: prev[hazardType]?.metrics || null, groundReport: prev[hazardType]?.groundReport || null },
+      [hazardType]: { ...(prev[hazardType] as HazardAnalysis), loading: true, error: null, analyzed: prev[hazardType]?.analyzed || false, zones: prev[hazardType]?.zones || [], polygons: prev[hazardType]?.polygons || [], zoneSource: prev[hazardType]?.zoneSource || null, note: prev[hazardType]?.note || null, origin: prev[hazardType]?.origin || null, path: prev[hazardType]?.path || null, strategyMarkdown: prev[hazardType]?.strategyMarkdown || "", checklist: prev[hazardType]?.checklist || [], metrics: prev[hazardType]?.metrics || null, groundReport: prev[hazardType]?.groundReport || null },
     }));
 
     const origin = resolveOrigin(hazardType);
@@ -600,6 +610,9 @@ export default function PreventionSidebar({
     const useGroundReport = GROUND_REPORT_HAZARDS.has(hazardType);
 
     try {
+      // AI-estimated circles are only ever a fallback for hazards with no physical
+      // model at all — a polygon-modelled hazard skips this fetch entirely, so it
+      // can never show a fabricated circle in place of a real (possibly empty) result.
       const [polyRes, vulnRes, prevRes] = await Promise.all([
         usePolygons
           ? fetch("/api/hazard-zones", {
@@ -613,17 +626,19 @@ export default function PreventionSidebar({
               }),
             })
           : Promise.resolve(null),
-        fetch("/api/vulnerability-zones", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            lat: hazardCenter[1],
-            lng: hazardCenter[0],
-            disasterType: hazardType,
-            cityName: cityName || "Local Area",
-            radiusKm: 5,
-          }),
-        }),
+        usePolygons
+          ? Promise.resolve(null)
+          : fetch("/api/vulnerability-zones", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                lat: hazardCenter[1],
+                lng: hazardCenter[0],
+                disasterType: hazardType,
+                cityName: cityName || "Local Area",
+                radiusKm: 5,
+              }),
+            }),
         fetch("/api/prevention", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -645,9 +660,11 @@ export default function PreventionSidebar({
         properties: { ...z.properties, hazardType },
       }));
 
-      const vulnData = vulnRes.ok ? await vulnRes.json() : { zones: [] };
-      // Real polygons win when we have them; AI circles are the fallback only.
-      const zones = polygons.length > 0
+      const vulnData = vulnRes && vulnRes.ok ? await vulnRes.json() : { zones: [] };
+      // Real polygons win when we have them. AI circles only ever apply to hazards
+      // with no physical model (usePolygons false) — a polygon-modelled hazard that
+      // found nothing stays empty rather than falling back to a fabricated zone.
+      const zones = usePolygons
         ? []
         : (vulnData.zones || []).map((z: any) => ({
             ...z,
@@ -670,7 +687,8 @@ export default function PreventionSidebar({
           error: null,
           zones,
           polygons,
-          zoneSource: polygons.length > 0 ? "polygon" : "ai",
+          zoneSource: usePolygons ? (polygons.length > 0 ? "polygon" : "none") : "ai",
+          note: usePolygons ? (polyData?.note || null) : null,
           origin,
           path,
           strategyMarkdown: prevData.strategyMarkdown || "",
@@ -1150,9 +1168,17 @@ export default function PreventionSidebar({
                                       label={
                                         analysis.zoneSource === "polygon"
                                           ? `${analysis.polygons.length} real map polygons (OSM geometry + elevation + weather)`
+                                          : analysis.zoneSource === "none"
+                                          ? "No real-world zones found — see note below"
                                           : `${analysis.zones.length} AI-estimated zones (no physical model for this hazard)`
                                       }
                                     />
+                                  )}
+
+                                  {analysis.zoneSource === "none" && analysis.note && (
+                                    <Text type="supporting" size="3xs" color="secondary">
+                                      {analysis.note}
+                                    </Text>
                                   )}
 
                                   {analysis.origin && (

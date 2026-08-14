@@ -284,7 +284,10 @@ export async function POST(req: Request) {
   way["landuse"="forest"](${bboxStr});
   way["natural"="wood"](${bboxStr});
   way["natural"="scrub"](${bboxStr});
+  way["natural"="grassland"](${bboxStr});
+  way["natural"="heath"](${bboxStr});
   way["landuse"="meadow"](${bboxStr});
+  way["landuse"="farmland"](${bboxStr});
 );
 out geom 220;`);
 
@@ -336,11 +339,12 @@ out geom 220;`);
       hazardType,
       source: fuel ? "osm+sentinel2+weather" : "osm+weather",
       method: fuel
-        ? "OSM forest/wood/scrub polygons scored by Sentinel-2 NDMI fuel moisture and 30-day rainfall/temperature"
-        : "OSM forest/wood/scrub polygons scored by 30-day rainfall deficit and peak temperature (NDMI unavailable)",
+        ? "OSM forest/wood/scrub/grassland polygons scored by Sentinel-2 NDMI fuel moisture and 30-day rainfall/temperature"
+        : "OSM forest/wood/scrub/grassland polygons scored by 30-day rainfall deficit and peak temperature (NDMI unavailable)",
       weather,
       fuel,
       zones,
+      note: zones.length === 0 ? "No forest, woodland, scrub or grassland cover identified within the search radius." : undefined,
     });
   }
 
@@ -426,6 +430,7 @@ out geom 200;`);
       weather,
       baseElevationM: baseElev,
       zones,
+      note: zones.length === 0 ? "No major water bodies or river corridors identified within the search radius." : undefined,
     });
   }
 
@@ -725,6 +730,7 @@ out geom 120;`);
       reliefM: Number(relief.toFixed(0)),
       terrain: terrainSource ? { reliefM: terrainSource.reliefM, maxSlopePct: terrainSource.maxSlopePct, meanSlopePct: terrainSource.meanSlopePct, note: terrainNote } : null,
       zones: zones.slice(0, 60),
+      note: zones.length === 0 ? "No sufficiently steep terrain identified within the search radius — this area is relatively flat." : undefined,
     });
   }
 
