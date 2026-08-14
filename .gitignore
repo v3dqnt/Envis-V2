@@ -48,3 +48,6 @@ next-env.d.ts
 # generated native folders
 /ios
 /android
+
+# retired Expo mobile client — kept locally, no longer tracked
+aegis-mobile/
