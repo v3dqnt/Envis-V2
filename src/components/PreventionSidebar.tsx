@@ -58,11 +58,11 @@ interface PreventionSidebarProps {
   gdacsLoading: boolean;
   incidentType: string;
   setIncidentType: (type: string) => void;
-  setVulnerabilityZones?: (zones: any) => void;
   setHazardPolygons?: (polys: any) => void;
   setHazardOrigins?: (origins: any) => void;
   setHazardPaths?: (paths: any) => void;
   setGroundReportZones?: (zones: any) => void;
+  setGroundReportMarkers?: (markers: any) => void;
   showTemperatureHeatmap?: boolean;
   setShowTemperatureHeatmap?: (v: boolean) => void;
   temperatureHeatmapLoading?: boolean;
@@ -141,8 +141,13 @@ const RISK_TO_INCIDENT: Record<string, string> = {
 };
 
 // Hazards with a real physical polygon model in /api/hazard-zones (OSM geometry +
-// elevation + weather). Everything else falls back to AI-estimated circular zones.
-const POLYGON_MODELLED = new Set(["Wildfire", "Flooding", "Landslide", "Thunderstorm", "Tropical Cyclone"]);
+// elevation + weather). Every hazard offered in Prevent now has one: source-feature
+// models for fire/water/terrain hazards, and land-use exposure models for the
+// atmospheric ones (heat, cold, drought), which have no distinct source feature.
+// The AI point/radius zones from /api/vulnerability-zones still inform the written
+// assessment, but they are never drawn on the map — an estimated circle reads as a
+// measured footprint and it is not one.
+const POLYGON_MODELLED = new Set(HAZARD_TYPES);
 
 // Hazards with a Tavily-backed on-ground report (/api/hazard-research) — matches the
 // hazard set that route understands search phrasing for.
@@ -163,7 +168,10 @@ interface GroundReport {
   loading: boolean;
   fetched: boolean;
   items: GroundReportItem[];
+  /** Real OSM boundary polygons for reported areas that have one. */
   zones: any[];
+  /** Point features for reported areas with no OSM boundary — drawn as markers. */
+  markers: any[];
   error: string | null;
 }
 
@@ -465,9 +473,9 @@ export default function PreventionSidebar({
   cityName,
   gdacsEvents,
   incidentType,
-  setVulnerabilityZones,
   setHazardPolygons,
   setGroundReportZones,
+  setGroundReportMarkers,
   setHazardOrigins,
   setHazardPaths,
   showTemperatureHeatmap = false,
@@ -676,7 +684,7 @@ export default function PreventionSidebar({
           strategyMarkdown: prevData.strategyMarkdown || "",
           checklist: prevData.checklist || [],
           metrics: prevData.vulnerabilityMetrics || null,
-          groundReport: useGroundReport ? { loading: true, fetched: false, items: [], zones: [], error: null } : null,
+          groundReport: useGroundReport ? { loading: true, fetched: false, items: [], zones: [], markers: [], error: null } : null,
         },
       }));
       setVisibleHazards((prev) => new Set(prev).add(hazardType));
@@ -701,7 +709,7 @@ export default function PreventionSidebar({
               ...prev,
               [hazardType]: {
                 ...(prev[hazardType] as HazardAnalysis),
-                groundReport: { loading: false, fetched: true, items: data.items || [], zones: data.zones || [], error: null },
+                groundReport: { loading: false, fetched: true, items: data.items || [], zones: data.zones || [], markers: data.markers || [], error: null },
               },
             }));
           })
@@ -711,7 +719,7 @@ export default function PreventionSidebar({
               ...prev,
               [hazardType]: {
                 ...(prev[hazardType] as HazardAnalysis),
-                groundReport: { loading: false, fetched: true, items: [], zones: [], error: "On-ground search failed" },
+                groundReport: { loading: false, fetched: true, items: [], zones: [], markers: [], error: "On-ground search failed" },
               },
             }));
           });
@@ -747,18 +755,18 @@ export default function PreventionSidebar({
 
   // Aggregate visible + analyzed hazards into the map's FeatureCollections
   useEffect(() => {
-    const zoneFeatures: any[] = [];
     const polygonFeatures: any[] = [];
     const originFeatures: any[] = [];
     const pathFeatures: any[] = [];
     const groundReportFeatures: any[] = [];
+    const groundReportMarkerFeatures: any[] = [];
 
     visibleHazards.forEach((type) => {
       const a = hazardAnalyses[type];
       if (!a || !a.analyzed) return;
-      zoneFeatures.push(...a.zones);
       polygonFeatures.push(...(a.polygons || []));
       if (a.groundReport?.zones?.length) groundReportFeatures.push(...a.groundReport.zones);
+      if (a.groundReport?.markers?.length) groundReportMarkerFeatures.push(...a.groundReport.markers);
       if (a.origin) {
         originFeatures.push({
           type: "Feature",
@@ -775,11 +783,11 @@ export default function PreventionSidebar({
       }
     });
 
-    setVulnerabilityZones?.(zoneFeatures.length ? { type: "FeatureCollection", features: zoneFeatures } : null);
     setHazardPolygons?.(polygonFeatures.length ? { type: "FeatureCollection", features: polygonFeatures } : null);
     setHazardOrigins?.(originFeatures.length ? { type: "FeatureCollection", features: originFeatures } : null);
     setHazardPaths?.(pathFeatures.length ? { type: "FeatureCollection", features: pathFeatures } : null);
     setGroundReportZones?.(groundReportFeatures.length ? { type: "FeatureCollection", features: groundReportFeatures } : null);
+    setGroundReportMarkers?.(groundReportMarkerFeatures.length ? { type: "FeatureCollection", features: groundReportMarkerFeatures } : null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hazardAnalyses, visibleHazards]);
 
@@ -1150,7 +1158,7 @@ export default function PreventionSidebar({
                                       label={
                                         analysis.zoneSource === "polygon"
                                           ? `${analysis.polygons.length} real map polygons (OSM geometry + elevation + weather)`
-                                          : `${analysis.zones.length} AI-estimated zones (no physical model for this hazard)`
+                                          : `No mapped features here — ${analysis.zones.length} AI-estimated zones inform the assessment below (not drawn on the map)`
                                       }
                                     />
                                   )}

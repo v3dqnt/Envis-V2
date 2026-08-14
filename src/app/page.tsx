@@ -73,13 +73,15 @@ export default function Home() {
   const [earthquakeBands, setEarthquakeBands] = useState<any>(null);
   const [tornado, setTornado] = useState<any>(null);
 
-  // Vulnerability zones state (for map highlighting) — aggregated across all
-  // analyzed + toggled-visible hazards in GAIA Prevent's multi-hazard view
-  const [vulnerabilityZones, setVulnerabilityZones] = useState<any>(null);
+  // Hazard geometry state (for map highlighting) — aggregated across all
+  // analyzed + toggled-visible hazards in GAIA Prevent's multi-hazard view.
+  // Everything drawn here is real geometry: OSM land-use/water/boundary polygons
+  // and elevation-derived terrain cells.
   const [hazardPolygons, setHazardPolygons] = useState<any>(null);
   const [hazardOrigins, setHazardOrigins] = useState<any>(null);
   const [hazardPaths, setHazardPaths] = useState<any>(null);
   const [groundReportZones, setGroundReportZones] = useState<any>(null);
+  const [groundReportMarkers, setGroundReportMarkers] = useState<any>(null);
 
   // Lifted disaster type state to keep all sidebars and right panel in sync
   const [incidentType, setIncidentType] = useState<string>("Wildfire");
@@ -448,11 +450,11 @@ export default function Home() {
               gdacsLoading={gdacsLoading}
               incidentType={incidentType}
               setIncidentType={setIncidentType}
-              setVulnerabilityZones={setVulnerabilityZones}
               setHazardPolygons={setHazardPolygons}
               setHazardOrigins={setHazardOrigins}
               setHazardPaths={setHazardPaths}
               setGroundReportZones={setGroundReportZones}
+              setGroundReportMarkers={setGroundReportMarkers}
               showTemperatureHeatmap={showTemperatureHeatmap}
               setShowTemperatureHeatmap={setShowTemperatureHeatmap}
               temperatureHeatmapLoading={temperatureHeatmapLoading}
@@ -494,13 +496,13 @@ export default function Home() {
         evacuationPoints={evacuationPoints}
         onSelectDestination={(coords: [number, number]) => setEndCoords(coords)}
         activeDefenses={activeDefenses}
-        vulnerabilityZones={vulnerabilityZones}
         hazardPolygons={hazardPolygons}
         hazardOrigins={hazardOrigins}
         hazardPaths={hazardPaths}
         earthquakeBands={earthquakeBands}
         tornado={tornado}
         groundReportZones={groundReportZones}
+        groundReportMarkers={groundReportMarkers}
           temperatureGridData={showTemperatureHeatmap ? temperatureGridData : null}
           showTemperatureHeatmap={showTemperatureHeatmap}
         />

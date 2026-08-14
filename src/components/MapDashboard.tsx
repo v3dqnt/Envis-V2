@@ -16,11 +16,12 @@ interface MapDashboardProps {
   evacuationPoints: any;
   onSelectDestination: (coords: [number, number]) => void;
   activeDefenses?: string[];
-  vulnerabilityZones?: any;
   hazardPolygons?: any;
   hazardOrigins?: any;
   hazardPaths?: any;
   groundReportZones?: any;
+  /** Reported areas with no OSM boundary — drawn as labelled markers, not fabricated discs. */
+  groundReportMarkers?: any;
   temperatureGridData?: any;
   showTemperatureHeatmap?: boolean;
   /** Earthquake MMI band polygons from /api/earthquake-impact — FeatureCollection with an `mmi` (5-9) property per feature. */
@@ -80,11 +81,11 @@ export default function MapDashboard({
   evacuationPoints,
   onSelectDestination,
   activeDefenses = [],
-  vulnerabilityZones,
   hazardPolygons,
   hazardOrigins,
   hazardPaths,
   groundReportZones,
+  groundReportMarkers,
   temperatureGridData,
   showTemperatureHeatmap = false,
   earthquakeBands,
@@ -357,62 +358,11 @@ export default function MapDashboard({
         }
       });
 
-      // 5. Vulnerability Zones Source & Layers
-      m.addSource('vulnerability-zones-source', {
-        type: 'geojson',
-        data: {
-          type: 'FeatureCollection',
-          features: []
-        }
-      });
-
-      // High severity zones (Flag Red)
-      m.addLayer({
-        id: 'vulnerability-zones-high',
-        type: 'circle',
-        source: 'vulnerability-zones-source',
-        filter: ['==', ['get', 'severity'], 'high'],
-        paint: {
-          'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 30, 15, 100],
-          'circle-color': '#c1121f',
-          'circle-opacity': 0.25,
-          'circle-stroke-color': '#c1121f',
-          'circle-stroke-width': 3,
-          'circle-stroke-opacity': 0.8
-        }
-      });
-
-      // Medium severity zones (Molten Lava)
-      m.addLayer({
-        id: 'vulnerability-zones-medium',
-        type: 'circle',
-        source: 'vulnerability-zones-source',
-        filter: ['==', ['get', 'severity'], 'medium'],
-        paint: {
-          'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 25, 15, 80],
-          'circle-color': '#780000',
-          'circle-opacity': 0.2,
-          'circle-stroke-color': '#780000',
-          'circle-stroke-width': 2.5,
-          'circle-stroke-opacity': 0.7
-        }
-      });
-
-      // Low severity zones (Steel Blue)
-      m.addLayer({
-        id: 'vulnerability-zones-low',
-        type: 'circle',
-        source: 'vulnerability-zones-source',
-        filter: ['==', ['get', 'severity'], 'low'],
-        paint: {
-          'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 20, 15, 60],
-          'circle-color': '#669bbc',
-          'circle-opacity': 0.15,
-          'circle-stroke-color': '#669bbc',
-          'circle-stroke-width': 2,
-          'circle-stroke-opacity': 0.6
-        }
-      });
+      // NOTE: GAIA no longer draws AI-estimated point/radius circles on the map.
+      // A circle drawn at a guessed centre reads to the eye as a measured footprint,
+      // and it never was one. Every hazard shape below comes from real geometry —
+      // OSM land-use/water/boundary polygons, or elevation-derived terrain cells.
+      // The AI vulnerability assessment still feeds the written analysis in the sidebar.
 
       // 5a. Real hazard POLYGONS — actual OSM geometry (forest blocks, water bodies,
       // river corridors) and elevation-derived terrain cells, not approximated circles.
@@ -748,13 +698,59 @@ export default function MapDashboard({
         paint: { 'text-color': '#fdf0d5', 'text-halo-color': '#001d2e', 'text-halo-width': 1.5 }
       });
 
-      // Add hover popup for vulnerability zones
-      m.on('mousemove', 'vulnerability-zones-high', () => { m.getCanvas().style.cursor = 'pointer'; });
-      m.on('mousemove', 'vulnerability-zones-medium', () => { m.getCanvas().style.cursor = 'pointer'; });
-      m.on('mousemove', 'vulnerability-zones-low', () => { m.getCanvas().style.cursor = 'pointer'; });
-      m.on('mouseleave', 'vulnerability-zones-high', () => { m.getCanvas().style.cursor = ''; });
-      m.on('mouseleave', 'vulnerability-zones-medium', () => { m.getCanvas().style.cursor = ''; });
-      m.on('mouseleave', 'vulnerability-zones-low', () => { m.getCanvas().style.cursor = ''; });
+      // 5d. On-ground reports whose area has no OSM boundary. These are marked at a
+      // point with a label, deliberately NOT filled as an area — we know roughly
+      // where the report is, not how far it extends, and the map should say so.
+      m.addSource('ground-report-markers-source', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] }
+      });
+
+      m.addLayer({
+        id: 'ground-report-marker-point',
+        type: 'circle',
+        source: 'ground-report-markers-source',
+        paint: {
+          'circle-radius': 6,
+          'circle-color': ['match', ['get', 'status'], 'current', '#c1121f', '#669bbc'],
+          'circle-stroke-color': '#fdf0d5',
+          'circle-stroke-width': 2
+        }
+      });
+
+      m.addLayer({
+        id: 'ground-report-marker-label',
+        type: 'symbol',
+        source: 'ground-report-markers-source',
+        layout: {
+          'text-field': ['get', 'areaName'],
+          'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+          'text-size': 10,
+          'text-offset': [0, 1.2],
+          'text-anchor': 'top'
+        },
+        paint: { 'text-color': '#fdf0d5', 'text-halo-color': '#003049', 'text-halo-width': 1.5 }
+      });
+
+      m.on('mousemove', 'ground-report-marker-point', () => { m.getCanvas().style.cursor = 'pointer'; });
+      m.on('mouseleave', 'ground-report-marker-point', () => { m.getCanvas().style.cursor = ''; });
+      m.on('click', 'ground-report-marker-point', (e: any) => {
+        const f = e.features?.[0];
+        if (!f) return;
+        const p = f.properties || {};
+        new maplibregl.Popup({ closeButton: true, maxWidth: '280px' })
+          .setLngLat(e.lngLat)
+          .setHTML(
+            `<div style="font-family:system-ui;font-size:11px;line-height:1.45">
+               <div style="font-weight:800;margin-bottom:3px">${p.hazardType || 'Hazard'} · ${String(p.status || '').toUpperCase()}</div>
+               ${p.areaName ? `<div style="font-weight:600;margin-bottom:2px">${p.areaName}</div>` : ''}
+               <div style="color:#669bbc">${p.summary || ''}</div>
+               <div style="color:#4a6573;font-size:10px;margin-top:3px">Approximate location — no mapped boundary for this area</div>
+               ${p.sourceUrl ? `<a href="${p.sourceUrl}" target="_blank" rel="noopener noreferrer" style="color:#4a6573;font-size:10px">${p.sourceTitle || 'source'}</a>` : ''}
+             </div>`
+          )
+          .addTo(m);
+      });
 
       // 6. Temperature Heatmap Source & Layers
       m.addSource('temperature-heatmap-source', {
@@ -1138,21 +1134,6 @@ export default function MapDashboard({
         }
       }
 
-      // 5. Update Vulnerability Zones
-      const vulnSource = m.getSource('vulnerability-zones-source') as maplibregl.GeoJSONSource;
-      if (vulnSource) {
-        if (vulnerabilityZones && vulnerabilityZones.features && vulnerabilityZones.features.length > 0) {
-          vulnSource.setData(vulnerabilityZones);
-          if (m.getLayer('vulnerability-zones-high')) m.setLayoutProperty('vulnerability-zones-high', 'visibility', 'visible');
-          if (m.getLayer('vulnerability-zones-medium')) m.setLayoutProperty('vulnerability-zones-medium', 'visibility', 'visible');
-          if (m.getLayer('vulnerability-zones-low')) m.setLayoutProperty('vulnerability-zones-low', 'visibility', 'visible');
-        } else {
-          if (m.getLayer('vulnerability-zones-high')) m.setLayoutProperty('vulnerability-zones-high', 'visibility', 'none');
-          if (m.getLayer('vulnerability-zones-medium')) m.setLayoutProperty('vulnerability-zones-medium', 'visibility', 'none');
-          if (m.getLayer('vulnerability-zones-low')) m.setLayoutProperty('vulnerability-zones-low', 'visibility', 'none');
-        }
-      }
-
       // 5c. Update real hazard polygons
       const polySource = m.getSource('hazard-polygons-source') as maplibregl.GeoJSONSource;
       if (polySource) {
@@ -1184,6 +1165,14 @@ export default function MapDashboard({
         groundReportSource.setData(hasReport ? groundReportZones : { type: 'FeatureCollection', features: [] });
         if (m.getLayer('ground-report-fill')) m.setLayoutProperty('ground-report-fill', 'visibility', hasReport ? 'visible' : 'none');
         if (m.getLayer('ground-report-outline')) m.setLayoutProperty('ground-report-outline', 'visibility', hasReport ? 'visible' : 'none');
+      }
+
+      const groundReportMarkerSource = m.getSource('ground-report-markers-source') as maplibregl.GeoJSONSource;
+      if (groundReportMarkerSource) {
+        const hasMarkers = groundReportMarkers && groundReportMarkers.features && groundReportMarkers.features.length > 0;
+        groundReportMarkerSource.setData(hasMarkers ? groundReportMarkers : { type: 'FeatureCollection', features: [] });
+        if (m.getLayer('ground-report-marker-point')) m.setLayoutProperty('ground-report-marker-point', 'visibility', hasMarkers ? 'visible' : 'none');
+        if (m.getLayer('ground-report-marker-label')) m.setLayoutProperty('ground-report-marker-label', 'visibility', hasMarkers ? 'visible' : 'none');
       }
 
       // 7. Update earthquake MMI bands. Sorted ascending so the highest-intensity
@@ -1293,7 +1282,7 @@ export default function MapDashboard({
     } else {
       m.once('idle', updateLayers);
     }
-  }, [hazardCenter, hazardRadius, routeGeoJSON, bypassRouteGeoJSON, evacuationPoints, activeDefenses, vulnerabilityZones, hazardPolygons, hazardOrigins, hazardPaths, earthquakeBands, tornado, groundReportZones]);
+  }, [hazardCenter, hazardRadius, routeGeoJSON, bypassRouteGeoJSON, evacuationPoints, activeDefenses, hazardPolygons, hazardOrigins, hazardPaths, earthquakeBands, tornado, groundReportZones, groundReportMarkers]);
 
   // Temperature Heatmap update effect — separate from other layers for clarity
   useEffect(() => {

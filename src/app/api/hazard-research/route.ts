@@ -160,13 +160,23 @@ Respond with ONLY a JSON object: {"items": [...]}`;
   }
 }
 
-/** Nominatim geocode, biased toward the target city so short area names resolve correctly. */
-async function geocode(areaName: string, cityName: string): Promise<[number, number] | null> {
+/**
+ * Nominatim geocode, biased toward the target city so short area names resolve
+ * correctly. Requests the area's real OSM boundary (`polygon_geojson=1`) alongside
+ * the centre point — a reported area is a named place with an actual shape, and
+ * drawing it as a fixed-radius disc misrepresents both its extent and its outline.
+ * When OSM has no boundary for the name, `geometry` stays null and the caller
+ * renders a marker instead of inventing one.
+ */
+async function geocode(
+  areaName: string,
+  cityName: string
+): Promise<{ coords: [number, number]; geometry: any | null } | null> {
   const attempts = [`${areaName}, ${cityName}`, areaName];
   for (const q of attempts) {
     try {
       const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`,
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1&polygon_geojson=1`,
         { headers: { "User-Agent": "GAIA/1.0 (climate resilience mapping)" }, cache: "no-store" }
       );
       if (!res.ok) continue;
@@ -174,7 +184,11 @@ async function geocode(areaName: string, cityName: string): Promise<[number, num
       if (Array.isArray(data) && data.length > 0) {
         const lon = parseFloat(data[0].lon);
         const lat = parseFloat(data[0].lat);
-        if (Number.isFinite(lon) && Number.isFinite(lat)) return [lon, lat];
+        if (!Number.isFinite(lon) || !Number.isFinite(lat)) continue;
+        const gj = data[0].geojson;
+        const geometry =
+          gj && (gj.type === "Polygon" || gj.type === "MultiPolygon") ? gj : null;
+        return { coords: [lon, lat], geometry };
       }
     } catch {
       /* try next attempt */
@@ -196,20 +210,6 @@ function distanceKm(a: [number, number], b: [number, number]): number {
     Math.sin(dLat / 2) ** 2 +
     Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
-}
-
-/** Small circular marker polygon around a geocoded point (~700m radius). */
-function circlePolygon(center: [number, number], radiusKm: number, pointCount = 32): number[][] {
-  const [lng, lat] = center;
-  const dLng = radiusKm / (111.32 * Math.cos((lat * Math.PI) / 180));
-  const dLat = radiusKm / 110.574;
-  const ring: number[][] = [];
-  for (let i = 0; i < pointCount; i++) {
-    const theta = (i / pointCount) * 2 * Math.PI;
-    ring.push([lng + dLng * Math.cos(theta), lat + dLat * Math.sin(theta)]);
-  }
-  ring.push(ring[0]);
-  return ring;
 }
 
 export async function POST(req: Request) {
@@ -269,8 +269,8 @@ export async function POST(req: Request) {
 
   const geocoded = await Promise.all(
     extracted.map(async (item) => {
-      const coords = await geocode(item.areaName, cityName);
-      return coords ? { ...item, coords } : null;
+      const hit = await geocode(item.areaName, cityName);
+      return hit ? { ...item, coords: hit.coords, geometry: hit.geometry } : null;
     })
   );
 
@@ -280,24 +280,38 @@ export async function POST(req: Request) {
   // independent of what the LLM believed about relevance.
   const MAX_DISTANCE_KM = 120;
   const items = geocoded.filter(
-    (x): x is ResearchItem & { coords: [number, number] } =>
+    (x): x is ResearchItem & { coords: [number, number]; geometry: any | null } =>
       x !== null && distanceKm([lng, lat], x.coords) <= MAX_DISTANCE_KM
   );
 
-  const radiusKm = 0.7;
-  const zones = items.map((item) => ({
-    type: "Feature" as const,
-    geometry: { type: "Polygon" as const, coordinates: [circlePolygon(item.coords, radiusKm)] },
-    properties: {
-      hazardType,
-      status: item.status,
-      severity: item.severity,
-      areaName: item.areaName,
-      summary: item.summary,
-      sourceUrl: item.sourceUrl,
-      sourceTitle: item.sourceTitle,
-    },
-  }));
+  const zoneProps = (item: (typeof items)[number]) => ({
+    hazardType,
+    status: item.status,
+    severity: item.severity,
+    areaName: item.areaName,
+    summary: item.summary,
+    sourceUrl: item.sourceUrl,
+    sourceTitle: item.sourceTitle,
+  });
+
+  // Areas with a real OSM boundary are drawn as that boundary. Areas without one
+  // are emitted as points and drawn as markers — never as a synthetic disc that
+  // would read as a measured footprint.
+  const zones = items
+    .filter((item) => item.geometry)
+    .map((item) => ({
+      type: "Feature" as const,
+      geometry: item.geometry,
+      properties: zoneProps(item),
+    }));
+
+  const markers = items
+    .filter((item) => !item.geometry)
+    .map((item) => ({
+      type: "Feature" as const,
+      geometry: { type: "Point" as const, coordinates: item.coords },
+      properties: zoneProps(item),
+    }));
 
   const responseBody = {
     hazardType,
@@ -305,8 +319,14 @@ export async function POST(req: Request) {
     cityName,
     query,
     resultCounts: { current: currentResults.length, historical: historicalResults.length },
-    items: items.map(({ coords, ...rest }) => ({ ...rest, lat: coords[1], lng: coords[0] })),
+    items: items.map(({ coords, geometry, ...rest }) => ({
+      ...rest,
+      lat: coords[1],
+      lng: coords[0],
+      hasBoundary: Boolean(geometry),
+    })),
     zones,
+    markers,
   };
   setCached(key, responseBody);
   return NextResponse.json(responseBody);

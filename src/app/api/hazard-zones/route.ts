@@ -238,6 +238,22 @@ async function fetchWeatherContext(lat: number, lng: number) {
   }
 }
 
+/** OSM land-use tags that describe where people actually live and work. */
+const EXPOSURE_BUILT_UP = [
+  `"landuse"="residential"`,
+  `"landuse"="commercial"`,
+  `"landuse"="industrial"`,
+  `"landuse"="retail"`,
+];
+
+/** OSM land-use tags for cultivated ground — the first thing a drought hits. */
+const EXPOSURE_AGRICULTURAL = [
+  `"landuse"="farmland"`,
+  `"landuse"="orchard"`,
+  `"landuse"="vineyard"`,
+  `"landuse"="meadow"`,
+];
+
 function feature(ring: number[][], props: Record<string, any>) {
   return {
     type: "Feature" as const,
@@ -725,6 +741,81 @@ out geom 120;`);
       reliefM: Number(relief.toFixed(0)),
       terrain: terrainSource ? { reliefM: terrainSource.reliefM, maxSlopePct: terrainSource.maxSlopePct, meanSlopePct: terrainSource.meanSlopePct, note: terrainNote } : null,
       zones: zones.slice(0, 60),
+    });
+  }
+
+  // ---------------- EXPOSURE HAZARDS: real built-up / farmland polygons ----------------
+  // Heat, cold and drought do not have a distinct source feature the way a fire has
+  // forest or a flood has a river — the hazard is atmospheric and the thing that
+  // varies across a city is what is exposed to it. So the zones are the actual OSM
+  // land-use blocks people occupy (or, for drought, the farmland that fails first),
+  // scored by the weather signal specific to the hazard. Still real geometry —
+  // no invented circles.
+  const EXPOSURE_MODEL: Record<string, { tags: string[]; note: string }> = {
+    Heatwave: { tags: EXPOSURE_BUILT_UP, note: "built-up blocks retain heat overnight" },
+    "Extreme Cold": { tags: EXPOSURE_BUILT_UP, note: "built-up blocks exposed to sustained cold" },
+    Blizzard: { tags: EXPOSURE_BUILT_UP, note: "built-up blocks exposed to snow accumulation" },
+    "Ice Storm": { tags: EXPOSURE_BUILT_UP, note: "built-up blocks exposed to freezing rain" },
+    Drought: { tags: EXPOSURE_AGRICULTURAL, note: "cultivated land dependent on rainfall" },
+  };
+
+  const exposure = EXPOSURE_MODEL[hazardType];
+  if (exposure) {
+    const elements = await runOverpass(`[out:json][timeout:30];
+(
+${exposure.tags.map((t) => `  way[${t}](${bboxStr});`).join("\n")}
+);
+out geom 220;`);
+
+    // Each hazard reads a different part of the same 30-day record. The factor is
+    // 0..1 and is what separates a high zone from a low one; area only breaks ties.
+    let weatherFactor = 0.4;
+    let weatherReason = "climatology only (live weather unavailable)";
+    if (weather) {
+      if (hazardType === "Heatwave") {
+        weatherFactor = Math.max(0, Math.min(1, (weather.maxTempC - 30) / 15));
+        weatherReason = `peak ${weather.maxTempC.toFixed(0)}°C, 30-day mean high ${weather.avgTempC.toFixed(0)}°C`;
+      } else if (hazardType === "Drought") {
+        weatherFactor = Math.max(0, Math.min(1, 1 - weather.total30DayPrecipMm / 80));
+        weatherReason = `${weather.total30DayPrecipMm.toFixed(0)}mm rain in 30d, ${weather.recent7DayPrecipMm.toFixed(0)}mm in last 7d`;
+      } else {
+        // Extreme Cold / Blizzard / Ice Storm — the colder the 30-day mean high, the
+        // longer conditions stay below freezing at this location.
+        weatherFactor = Math.max(0, Math.min(1, (5 - weather.avgTempC) / 15));
+        weatherReason = `30-day mean high ${weather.avgTempC.toFixed(0)}°C, ${weather.total30DayPrecipMm.toFixed(0)}mm precipitation`;
+      }
+    }
+
+    const zones = elements
+      .map((el) => {
+        const ring = toPolygon(el);
+        if (!ring) return null;
+        const areaKm2 = polygonAreaKm2(ring);
+        if (areaKm2 < 0.005) return null;
+        const sizeFactor = Math.min(1, areaKm2 / 1.5);
+        const score = weatherFactor * 0.75 + sizeFactor * 0.25;
+        const severity: Severity = score > 0.55 ? "high" : score > 0.3 ? "medium" : "low";
+        const landcover = el.tags?.landuse || el.tags?.natural || el.tags?.place || "built-up";
+        return feature(ring, {
+          hazardType,
+          severity,
+          score: Number(score.toFixed(2)),
+          areaKm2: Number(areaKm2.toFixed(3)),
+          name: el.tags?.name || null,
+          landcover,
+          reason: `${landcover.replace(/_/g, " ")} block of ${areaKm2.toFixed(2)} km² — ${exposure.note} · ${weatherReason}`,
+        });
+      })
+      .filter(Boolean)
+      .sort((a: any, z: any) => z.properties.score - a.properties.score)
+      .slice(0, 120);
+
+    return respond({
+      hazardType,
+      source: "osm+weather",
+      method: `OSM ${hazardType === "Drought" ? "farmland/orchard" : "residential/commercial/industrial"} land-use polygons scored by 30-day temperature and precipitation record`,
+      weather,
+      zones,
     });
   }
 
